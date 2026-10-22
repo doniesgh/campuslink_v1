@@ -136,7 +136,7 @@
       "toFix": "À corriger",
       "more": "{count, plural, one {… et # autre ligne.} other {… et # autres lignes.}}",
       "fixHint": "Corrige ces lignes dans le fichier et choisis-le à nouveau, ou laisse-les de côté.",
-      "skip": "Importer les {ready} comptes corrects et laisser de côté {count, plural, one {la ligne} other {les # lignes}} à corriger",
+      "skip": "{ready, plural, one {Importer le compte correct} other {Importer les # comptes corrects}} et laisser de côté {count, plural, one {la ligne} other {les # lignes}} à corriger",
       "another": "Choisir un autre fichier",
       "submit": "{count, plural, one {Importer # compte} other {Importer # comptes}}",
       "importing": "Import en cours… {done} sur {total}",

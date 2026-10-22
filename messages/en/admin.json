@@ -136,7 +136,7 @@
       "toFix": "To fix",
       "more": "{count, plural, one {… and # more line.} other {… and # more lines.}}",
       "fixHint": "Fix these lines in the file and choose it again, or leave them out.",
-      "skip": "Import the {ready} correct accounts and leave out the {count, plural, one {line} other {# lines}} to fix",
+      "skip": "{ready, plural, one {Import the correct account} other {Import the # correct accounts}} and leave out the {count, plural, one {line} other {# lines}} to fix",
       "another": "Choose another file",
       "submit": "{count, plural, one {Import # account} other {Import # accounts}}",
       "importing": "Importing… {done} of {total}",
