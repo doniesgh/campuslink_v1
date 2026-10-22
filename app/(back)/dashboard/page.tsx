@@ -1,19 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/ui/app-link";
-import {
-  Bus,
-  CalendarClock,
-  CircleAlert,
-  GraduationCap,
-  MessagesSquare,
-  ShieldCheck,
-  ShoppingBag,
-  UserRound,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { CalendarClock, CircleAlert, ShieldCheck, UserRound, Users, type LucideIcon } from "lucide-react";
 import { getFormatter, getTranslations } from "next-intl/server";
-//import { LatestWidget } from "@/components/announcements/latest-widget";
 import { UnreadNotificationsWidget } from "@/components/notifications/unread-widget";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentUser } from "@/lib/dal";
@@ -96,7 +84,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-    
+      <UnreadNotificationsWidget initialData={unreadPreview.data} renderedAt={unreadPreview.savedAt} />
 
       <section aria-labelledby="account-heading" className="rounded-3xl border bg-card p-6 text-card-foreground sm:p-8">
         <h2 id="account-heading" className="text-xl font-semibold">{t("account.title")}</h2>
@@ -119,8 +107,6 @@ export default async function DashboardPage() {
           )}
         </dl>
       </section>
-
-
     </div>
   );
 }

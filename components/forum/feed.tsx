@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type ComponentType, type FormEvent } from "react";
 import { bff, errorMessage } from "@/lib/forum/bff";
 import { S } from "@/lib/forum/strings";
-import { STATUSES, TYPES, type Post, type PostsPage, type PostStatus, type PostType } from "@/lib/forum/types";
+import { STATUSES, TYPES, type Post, type PostsPage, type PostStatus, type PostType, type Viewer } from "@/lib/forum/types";
 import { btn } from "@/lib/forum/ui";
 import { STATUS_ICONS, TYPE_ICONS } from "./badges";
 import { CloseIcon, GridIcon, IconCircle, SearchIcon } from "./icons";
@@ -36,7 +36,7 @@ function Chips<T extends string>({ label, value, options, onChange }: { label: s
   );
 }
 
-export function Feed() {
+export function Feed({ viewer }: { viewer: Viewer | null }) {
   const [type, setType] = useState<PostType | "">("");
   const [status, setStatus] = useState<PostStatus | "">("");
   const [q, setQ] = useState("");
@@ -45,7 +45,6 @@ export function Feed() {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
 
@@ -59,9 +58,14 @@ export function Feed() {
     [type, status, search]
   );
 
-  const reload = useCallback(() => {
+  // Une requête par combinaison de filtres (et par « Réessayer ») : chargement tant que sa réponse n'est pas arrivée.
+  const [attempt, setAttempt] = useState(0);
+  const requestKey = `${type}|${status}|${search}|${attempt}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loading = loadedKey !== requestKey;
+
+  useEffect(() => {
     let off = false;
-    setLoading(true);
     fetchPage(1)
       .then((d) => {
         if (off) return;
@@ -72,13 +76,13 @@ export function Feed() {
         setError("");
       })
       .catch((e) => !off && setError(errorMessage(e)))
-      .finally(() => !off && setLoading(false));
+      .finally(() => !off && setLoadedKey(requestKey));
     return () => {
       off = true;
     };
-  }, [fetchPage]);
+  }, [fetchPage, requestKey]);
 
-  useEffect(() => reload(), [reload]);
+  const reload = () => setAttempt((n) => n + 1);
 
   async function loadMore() {
     setLoadingMore(true);
@@ -164,6 +168,7 @@ export function Feed() {
           <PostCard
             key={p._id}
             post={p}
+            viewer={viewer}
             onChange={(next) => setPosts((prev) => prev.map((x) => (x._id === next._id ? next : x)))}
             onDeleted={(id) => {
               setPosts((prev) => prev.filter((x) => x._id !== id));

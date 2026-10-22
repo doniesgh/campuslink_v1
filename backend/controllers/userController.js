@@ -16,6 +16,10 @@ const { idOf } = require('../utils/serialize');
 const { revokeAllRefreshTokens } = require('../service/tokenService');
 const auditService = require('../service/auditService');
 const realtime = require('../service/realtime');
+const { notifyAccountChanged } = require('../service/accountNotifications');
+
+// Maximum number of users sent by GET /api/users/directory (the admin's offline copy of the user list).
+const DIRECTORY_MAX = 5000;
 
 const { ROLES } = User;
 
@@ -159,6 +163,16 @@ const listUsers = async (req, res) => {
   res.status(200).json({ items, total, page, limit });
 };
 
+// GET /api/users/directory [admin] → { items, total, truncated }: every user (at most DIRECTORY_MAX), by name.
+// The web app keeps it on the admin's device to search, filter, export and edit the list offline.
+const getDirectory = async (req, res) => {
+  const [items, total] = await Promise.all([
+    User.find().collation({ locale: 'fr', strength: 1 }).sort({ lastname: 1, firstname: 1, _id: 1 }).limit(DIRECTORY_MAX),
+    User.estimatedDocumentCount(),
+  ]);
+  res.status(200).json({ items, total, truncated: total > items.length });
+};
+
 // GET /api/users/stats [admin]
 const getUserStats = async (req, res) => {
   const counts = await User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]);
@@ -248,13 +262,26 @@ const updateUser = async (req, res) => {
   await user.save();
   if (changes.group !== undefined) await user.populateGroup();
 
+  // The user is told (in-app + push) what an admin changed on their account; not their own edits.
+  const groupChanged = idOf(user.group) !== before.group;
+  const notice = req.user._id.equals(user._id)
+    ? null
+    : {
+        ...(roleChanged ? { role: user.role } : {}),
+        ...(groupChanged ? { group: user.group?.name ?? null } : {}),
+        password: passwordChanged,
+      };
+
   if (passwordChanged) {
+    // Notified first: revoking the sessions also deletes the push subscriptions the message must reach.
+    if (notice) await notifyAccountChanged(user, notice);
     // Also closes every real-time connection of the user.
     await revokeAllRefreshTokens(user._id);
-  } else if (roleChanged) {
+  } else {
+    if (notice) void notifyAccountChanged(user, notice);
     // Real-time connections were opened (and joined their rooms) under the old role: the clients reconnect
     // with a new ticket or token and join again under the new one.
-    await realtime.disconnectUser(user._id);
+    if (roleChanged) await realtime.disconnectUser(user._id);
   }
 
   if (changed.length > 0) {
@@ -315,9 +342,6 @@ const deleteUser = async (req, res) => {
   // Every real-time connection of the account is closed (they leave every room). revokeAllRefreshTokens does it
   // too: explicit here so an account deletion never depends on how sessions are revoked.
   await realtime.disconnectUser(user._id);
-  // Right to be forgotten in the alumni network (any role: alumni profile and posts deleted, both sides of the
-  // mentoring history anonymized, same erasure as DELETE /api/alumni/me). Loaded lazily; never throws.
-  await require('../service/alumniService').purgeUser(user._id);
 
   await auditService.record(req, {
     action: 'user.delete',
@@ -334,6 +358,7 @@ module.exports = {
   getMe,
   updateMe,
   listUsers,
+  getDirectory,
   getUserStats,
   createUser,
   getUser,

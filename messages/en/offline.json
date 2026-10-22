@@ -9,9 +9,9 @@
     "title": "You're offline",
     "description": "CampusLink can't reach the network right now. The pages you already opened stay available with the data saved on this device.",
     "savedViews": "Saved views",
-    "timetable": "My timetable",
-    "announcements": "Announcements",
     "home": "Home",
+    "forum": "Forum",
+    "notifications": "Notifications",
     "retry": "Try again",
     "tip": "Your changes stay on this device and are sent as soon as you're back online."
   }

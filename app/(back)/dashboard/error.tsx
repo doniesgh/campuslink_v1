@@ -3,7 +3,7 @@
 import Link from "@/components/ui/app-link";
 import { TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { Button, buttonVariants } from "@/components/ui/ButtonForm";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /** Error boundary of the dashboard pages (the shell and navigation stay usable). */

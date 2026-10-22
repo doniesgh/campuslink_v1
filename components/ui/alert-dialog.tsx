@@ -4,7 +4,7 @@ import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { buttonVariants } from "@/components/ui/ButtonForm";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**

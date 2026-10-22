@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { bff, errorMessage } from "@/lib/forum/bff";
-import { initials, timeAgo } from "@/lib/forum/format";
+import { authorName, canManage, initials, timeAgo } from "@/lib/forum/format";
 import { S } from "@/lib/forum/strings";
-import type { PostComment } from "@/lib/forum/types";
+import type { PostComment, Viewer } from "@/lib/forum/types";
 
 function Avatar({ name }: { name: string }) {
   return (
@@ -14,32 +14,34 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
-export function CommentsThread({ postId, onChanged }: { postId: string; onChanged: () => void }) {
+export function CommentsThread({ postId, viewer, onChanged }: { postId: string; viewer: Viewer | null; onChanged: () => void }) {
   const [comments, setComments] = useState<PostComment[] | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    try {
-      const data = await bff<{ comments: PostComment[] }>(`/posts/${postId}/comments?limit=100`);
-      setComments(data.comments);
-      setError("");
-    } catch (e) {
-      setError(errorMessage(e));
-    }
-  }, [postId]);
+  const fetchComments = useCallback(() => bff<{ comments: PostComment[] }>(`/posts/${postId}/comments?limit=100`), [postId]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let off = false;
+    fetchComments()
+      .then((data) => {
+        if (off) return;
+        setComments(data.comments);
+        setError("");
+      })
+      .catch((e) => !off && setError(errorMessage(e)));
+    return () => {
+      off = true;
+    };
+  }, [fetchComments]);
 
   async function remove(id: string) {
     setBusy(true);
     try {
       await bff(`/comments/${id}`, { method: "DELETE" });
       setConfirmId(null);
-      await load();
+      setComments((await fetchComments()).comments);
       onChanged();
     } catch (e) {
       setError(errorMessage(e));
@@ -55,23 +57,24 @@ export function CommentsThread({ postId, onChanged }: { postId: string; onChange
 
   const row = (c: PostComment, isReply: boolean) => (
     <li key={c._id} className={`flex gap-2 ${isReply ? "ml-10" : ""}`}>
-      <Avatar name={c.author?.name ?? "?"} />
+      <Avatar name={authorName(c.author)} />
       <div className="min-w-0">
         <div className="rounded-2xl bg-muted px-3 py-2">
-          <p className="text-sm font-semibold">{c.author?.name ?? "Unknown"}</p>
+          <p className="text-sm font-semibold">{authorName(c.author)}</p>
           <p className="whitespace-pre-line break-words text-sm">{c.content}</p>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 text-xs text-muted-foreground">
           <span>{timeAgo(c.createdAt)}</span>
-          {confirmId === c._id ? (
-            <span className="flex flex-wrap items-center gap-2">
-              <span>{S.deleteCommentQ}</span>
-              <button disabled={busy} onClick={() => remove(c._id)} className="font-semibold text-destructive hover:underline">{S.confirmDelete}</button>
-              <button onClick={() => setConfirmId(null)} className="hover:underline">{S.cancel}</button>
-            </span>
-          ) : (
-            <button onClick={() => setConfirmId(c._id)} className="font-semibold hover:text-destructive hover:underline">{S.deleteComment}</button>
-          )}
+          {canManage(viewer, c.author) &&
+            (confirmId === c._id ? (
+              <span className="flex flex-wrap items-center gap-2">
+                <span>{S.deleteCommentQ}</span>
+                <button disabled={busy} onClick={() => remove(c._id)} className="font-semibold text-destructive hover:underline">{S.confirmDelete}</button>
+                <button onClick={() => setConfirmId(null)} className="hover:underline">{S.cancel}</button>
+              </span>
+            ) : (
+              <button onClick={() => setConfirmId(c._id)} className="font-semibold hover:text-destructive hover:underline">{S.deleteComment}</button>
+            ))}
         </div>
       </div>
     </li>

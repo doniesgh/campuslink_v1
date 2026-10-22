@@ -18,65 +18,12 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle") };
 }
 
-/** Audited actions of the contract (section 5), offered in the "Action" filter. */
-const AUDIT_ACTIONS = [
-  "user.create",
-  "user.update",
-  "user.delete",
-  "auth.password_reset",
-  "auth.password_change",
-  "academic.program.create",
-  "academic.program.update",
-  "academic.program.delete",
-  "academic.group.create",
-  "academic.group.update",
-  "academic.group.delete",
-  "academic.subject.create",
-  "academic.subject.update",
-  "academic.subject.delete",
-  "academic.room.create",
-  "academic.room.update",
-  "academic.room.delete",
-  "timetable.session.create",
-  "timetable.session.update",
-  "timetable.session.cancel",
-  "timetable.session.delete",
-  "timetable.import",
-  "announcement.create",
-  "announcement.publish",
-  "announcement.schedule",
-  "announcement.update",
-  "announcement.delete",
-  "equipment.create",
-  "equipment.update",
-  "equipment.delete",
-  "booking.approve",
-  "booking.reject",
-  "booking.cancel",
-  "forum.hide",
-  "forum.unhide",
-  "forum.delete",
-  "attendance.update",
-  "grades.assessment.create",
-  "grades.assessment.update",
-  "grades.assessment.delete",
-  "grades.publish",
-  "grades.update",
-  "carpool.trip.cancel",
-  "marketplace.approve",
-  "marketplace.reject",
-  "marketplace.unpublish",
-  "alumni.export",
-  "alumni.erase",
-  "alumni.post.delete",
-  "alumni.post.hide",
-  "alumni.post.unhide",
-  "marketplace.review.delete",
-] as const;
+/** Actions the backend records (auditService.record), offered in the "Action" filter. */
+const AUDIT_ACTIONS = ["user.create", "user.update", "user.delete", "auth.password_reset", "auth.password_change"] as const;
 
 /** Action codes with a readable label (`admin.audit.actionLabels.<code>`); other codes are shown as they are. */
-const LABELLED_ACTIONS: ReadonlySet<string> = new Set([...AUDIT_ACTIONS, "timetable.calendar_link.reset"]);
-type LabelledAction = (typeof AUDIT_ACTIONS)[number] | "timetable.calendar_link.reset";
+const LABELLED_ACTIONS: ReadonlySet<string> = new Set(AUDIT_ACTIONS);
+type LabelledAction = (typeof AUDIT_ACTIONS)[number];
 const isLabelled = (action: string): action is LabelledAction => LABELLED_ACTIONS.has(action);
 
 const ACTION_RE = /^[a-z0-9_.-]{1,64}$/i;

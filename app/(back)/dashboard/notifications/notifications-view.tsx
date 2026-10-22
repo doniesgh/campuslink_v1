@@ -5,7 +5,7 @@ import { BellRing, CheckCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { NotificationItem } from "@/components/notifications/notification-item";
 import { UNREAD_COUNT_KEY } from "@/components/notifications/use-unread-count";
-import { Button } from "@/components/ui/ButtonForm";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InlineFeedback, useFeedback } from "@/components/ui/feedback";
 import { PageHeader } from "@/components/ui/page-header";

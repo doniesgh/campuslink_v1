@@ -9,11 +9,16 @@ const mongoose = require('mongoose');
 const logger = require('./middleware/logger');
 const errorHandler = require('./middleware/errorHandler');
 const { isProduction, trustProxySetting } = require('./utils/env');
+const { isSmtpConfigured } = require('./service/mailService');
+const scheduler = require('./service/scheduler');
+const realtime = require('./service/realtime');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+const academicRoutes = require('./routes/academic');
+const notificationRoutes = require('./routes/notifications');
+const pushRoutes = require('./routes/push');
+const auditRoutes = require('./routes/audit');
 const forumRoutes = require('./routes/forumRoutes');
-
-const realtime = require('./service/realtime');
 
 const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
 
@@ -42,45 +47,13 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/posts', forumRoutes);
-app.use(express.json({ limit: '1mb' }));
+app.use('/api/academic', academicRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/push', pushRoutes);
+app.use('/api/audit', auditRoutes);
+// Forum: /api/posts/... and /api/comments/:id.
+app.use('/api', forumRoutes);
 
-app.use((req, res, next) => {
-  const startTime = Date.now();
-
-  console.log(`\n[API REQUEST] ${new Date().toISOString()}`);
-  console.log(`Method: ${req.method}`);
-  console.log(`URL: ${req.originalUrl}`);
-  console.log(`IP: ${req.ip}`);
-
-  if (Object.keys(req.query).length > 0) {
-    console.log('Query:', req.query);
-  }
-
-  // Log request body, excluding sensitive information
-  if (req.body && Object.keys(req.body).length > 0) {
-    const safeBody = { ...req.body };
-
-    for (const key of Object.keys(safeBody)) {
-      if (/password|token|secret|authorization|cookie/i.test(key)) {
-        safeBody[key] = '[REDACTED]';
-      }
-    }
-
-    console.log('Body:', safeBody);
-  }
-
-  res.on('finish', () => {
-    console.log(
-      `[API RESPONSE] ${req.method} ${req.originalUrl} ` +
-      `-> ${res.statusCode} (${Date.now() - startTime}ms)`
-    );
-  });
-
-  next();
-});
-
-app.use(logger);
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found', code: 'NOT_FOUND' });
 });
@@ -115,7 +88,6 @@ const start = async () => {
     process.exit(1);
   }
 
-
   // Express 5 calls this callback with an error when the server cannot start (e.g. port in use).
   const server = app.listen(port, (error) => {
     if (error) {
@@ -124,8 +96,10 @@ const start = async () => {
     }
     console.log(`CampusLink API listening on http://localhost:${port}`);
   });
-  // Real-time layer (Socket.IO) on the same HTTP server (phase 3 contract section 1).
+  // Real-time layer (Socket.IO) on the same HTTP server.
   realtime.init(server);
+  // Background jobs registered by the services (e.g. push.prune-ended-sessions).
+  scheduler.start();
 
   let shuttingDown = false;
   const shutdown = () => {
@@ -133,7 +107,7 @@ const start = async () => {
     shuttingDown = true;
     // Do not wait forever for open keep-alive connections or running jobs.
     setTimeout(() => process.exit(0), 8000).unref();
-    // const jobsStopped = scheduler.stop();
+    const jobsStopped = scheduler.stop();
     server.close(() => {
       jobsStopped.finally(() => mongoose.disconnect().finally(() => process.exit(0)));
     });

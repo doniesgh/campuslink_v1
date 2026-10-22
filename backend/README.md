@@ -1,8 +1,7 @@
 # CampusLink backend
 
-REST API of CampusLink (Express 5 + Mongoose 9, CommonJS). The web app (`next/`) and the future Flutter app
+REST API of CampusLink (Express 5 + Mongoose 9, CommonJS). The web app (repository root) and a future mobile app
 use the same API: tokens travel in JSON bodies and `Authorization: Bearer` headers, never in cookies.
-The API contract of phase 1 is [`docs/phase1-contract.md`](../docs/phase1-contract.md).
 
 ## Run
 
@@ -11,12 +10,14 @@ cd backend
 npm install
 cp .env.example .env        # then set MONGO_URI and JWT_SECRET (see the comments in the file)
 npm run generate-vapid      # optional: web push keys, paste the lines into .env
-npm run dev                 # nodemon, or `npm start`
+npm run seed:demo           # optional: demo accounts and forum posts
+npm run dev                 # nodemon; `npm start` runs plain node (production)
 ```
 
 | Script                   | What it does                                                                                    |
 | ------------------------ | ----------------------------------------------------------------------------------------------- |
-| `npm start` / `npm run dev` | Starts the API on `PORT` (default 4000).                                                     |
+| `npm run dev`            | Starts the API on `PORT` (default 4000) with nodemon (restarts on changes).                     |
+| `npm start`              | Same with plain `node` (production).                                                            |
 | `npm run create-admin -- <email> <password> [firstname] [lastname]` | Creates an ADMIN, or promotes an account and sets its password. |
 | `npm run generate-vapid` | Prints a new VAPID key pair for `.env` (`-- --json` prints `{ publicKey, privateKey }`).       |
 | `npm run seed:demo`      | Demo data (refuses `NODE_ENV=production`, idempotent). Every demo account uses `Campus123!`.  |
@@ -31,16 +32,36 @@ lines), `PUSH_OUTBOX_FILE=<file>` (pushes as JSON lines instead of sending them)
 ## Layout
 
 ```
-app.js                 Express app; start() connects MongoDB, creates indexes, starts the scheduler
-routes/                one router per prefix (/api/auth, users, academic, notifications, push, audit,
-                       timetable, announcements)
+app.js                 Express app; start() connects MongoDB, creates indexes, starts Socket.IO and the scheduler
+routes/                one router per prefix (/api/auth, users, academic, notifications, push, audit; forum: /api/posts, /api/comments)
 controllers/           request handlers
 models/                Mongoose models (model names are part of the contract)
-service/               business services (mail, tokens, notifications, push, audit, audience, storage, scheduler)
-middleware/            requireAuth/requireRole, optionalAuth, upload, rateLimit, logger, errorHandler
+service/               services (mail, tokens, notifications, push, audit, storage, scheduler, realtime)
+middleware/            requireAuth/requireRole, upload, rateLimit, logger, errorHandler
 utils/                 HttpError, validation, env, time (campus timezone), serialize, pushEndpoint
-scripts/               create-admin, generate-vapid, seed-demo (+ seed/*.js plugins of the modules)
+scripts/               create-admin, generate-vapid, seed-demo (+ scripts/seed/*.js plugins)
+logs/operations.log    request log of state-changing calls, secrets redacted (git-ignored)
 ```
+
+## API
+
+| Endpoint | Who | Answer |
+| -------- | --- | ------ |
+| `GET /api/health` | anyone | `{ status: "ok" }` |
+| `POST /api/auth/signup`, `/login`, `/verify-otp`, `/refresh`, `/logout`, `/forgot-password`, `/reset-password` | anyone | session (`{ user, accessToken, refreshToken }`) or OTP challenge, see `controllers/authController.js` |
+| `POST /api/auth/change-password` | signed in | revokes every session |
+| `GET /api/users/me`, `PATCH /api/users/me { firstname, lastname, twoFactorEnabled, locale }` | signed in | the user |
+| `GET /api/users?q&role&page&limit`, `GET /stats`, `POST /`, `GET/PATCH/DELETE /:id` | ADMIN | user management |
+| `GET /api/users/directory` | ADMIN | `{ items, total, truncated }`: every user (at most 5000), by last name: the web app's offline copy |
+| `GET /api/academic/groups` | ADMIN | groups with `studentCount` |
+| `GET /api/notifications?page&limit&unread=true` | signed in | `{ items, total, page, limit, unreadCount }`, newest first |
+| `GET /api/notifications/unread-count` | signed in | `{ count }` |
+| `POST /api/notifications/:id/read`, `POST /api/notifications/read-all` | signed in | `204` (idempotent) |
+| `GET /api/push/vapid-public-key` | anyone | `{ publicKey }`, `503 PUSH_DISABLED` without VAPID keys |
+| `POST /api/push/subscriptions` | signed in | `{ type: "web", endpoint, keys: { p256dh, auth } }` or `{ type: "fcm", token }`: upsert, `201`/`200` |
+| `DELETE /api/push/subscriptions { endpoint }` | signed in | `204`, only the user's own subscription |
+| `GET /api/audit?action&actor&targetType&targetId&from&to&page&limit`, `GET /api/audit/actions` | ADMIN | audit log, newest first |
+| `/api/posts`, `/api/comments/:id` | signed in | forum, see below |
 
 ## Conventions
 
@@ -49,9 +70,10 @@ scripts/               create-admin, generate-vapid, seed-demo (+ seed/*.js plug
   `400 VALIDATION_ERROR` (details per field), `400 INVALID_ID` (cast errors) and `409 ALREADY_EXISTS`
   (`details.field`, duplicate key). Unknown errors give `500 INTERNAL_ERROR` without the stack.
 - Every model has a `toJSON` transform: string `id`, no `_id` / `__v` / secrets. Send documents with `res.json(doc)`.
+  Exception: the forum sends `_id` (its web client reads `_id`), and never `likes` (who liked a post).
 - Paginated lists: `{ items, total, page, limit }` (`parsePagination`, limit max 100).
 - Dates are stored in UTC; anything "per day / per week" uses `APP_TIMEZONE` through `utils/time.js`.
-- Look up another module's model with `mongoose.models.<Name>` and check that it is registered.
+- Look up an optional model with `mongoose.models.<Name>` and check that it is registered.
 
 ## Sessions and rate limiting — `/api/auth`
 
@@ -62,7 +84,7 @@ scripts/               create-admin, generate-vapid, seed-demo (+ seed/*.js plug
   session, its push subscriptions and closes its real-time (Socket.IO) connections. Password change/reset, admin
   password changes and account deletion revoke every session, push subscription and real-time connection of the
   user (`tokenService.revokeAllRefreshTokens`); a role change closes the user's real-time connections too
-  (`realtime.disconnectUser`, see [`docs/carpool.md`](docs/carpool.md) section 1).
+  (`realtime.disconnectUser`).
 - **Rate limits** (`middleware/rateLimit.js`, in memory, per instance): every limiter answers
   `429 TOO_MANY_REQUESTS` with a `Retry-After` header and `details.retryAfter` (seconds), and is skipped with
   `RATE_LIMIT_ENABLED=false`. The client IP is `req.ip` (`TRUST_PROXY`).
@@ -73,7 +95,6 @@ scripts/               create-admin, generate-vapid, seed-demo (+ seed/*.js plug
 | the same four routes together | IP (not applied to loopback callers without `X-Forwarded-For`) | `RATE_LIMIT_IP_MAX` (100) |
 | `change-password` | signed-in user | `RATE_LIMIT_PASSWORD_MAX` (10) |
 | `reset-password` | IP (not applied to loopback callers without `X-Forwarded-For`) | `RATE_LIMIT_RESET_MAX` (20) |
-| `POST /api/bookings`, `POST /api/bookings/:id/cancel` (each) | signed-in user (ADMIN cancellations not counted) | `RATE_LIMIT_BOOKING_CREATE_MAX` / `RATE_LIMIT_BOOKING_CANCEL_MAX` (30) per `RATE_LIMIT_BOOKING_WINDOW_MS` (1 h), see `docs/bookings.md` |
 
 Other per-user limits are built with `userRateLimit({ name, limitEnv, defaultLimit, windowEnv, defaultWindowMs, skip })`
 from `middleware/rateLimit.js`, mounted after `requireAuth`.
@@ -86,122 +107,35 @@ The two IP-only limiters are not applied when `req.ip` is a loopback address (`1
 browser from loopback, and without a forwarded client address one counter would be shared by all web users (one
 person sending bad logins would lock everyone out). Such requests keep the route + IP + email limit. Set
 `TRUSTED_PROXY_HOPS` on the web app so it forwards the client IP (production: nginx in front of Next.js and
-`TRUSTED_PROXY_HOPS=1`, see `next/README.md`); behind a proxy that writes `X-Forwarded-For`, `req.ip` is the real
+`TRUSTED_PROXY_HOPS=1`, see the root README); behind a proxy that writes `X-Forwarded-For`, `req.ip` is the real
 client and the per-IP limits apply to web users and to direct API clients (mobile app) alike.
 
-## Timetable module — `/api/timetable` (Module 1)
+## Forum — `/api/posts`, `/api/comments`
 
-Code: `models/classSessionModel.js`, `controllers/timetableController.js`, `service/timetableService.js`
-(ranges, conflicts, series, notifications), `service/timetableImport.js` (CSV), `service/icsService.js` (iCalendar).
-
-| Endpoint | Who | Answer |
-| -------- | --- | ------ |
-| `GET /me?from&to&subject&teacher` | any | `{ from, to, items, hint? }`: STUDENT = their group (`hint: "NO_GROUP"` without one), TEACHER = sessions they teach, others `[]` |
-| `GET /?group\|teacher\|room&from&to&subject` | any | `{ from, to, items }`; at least one of group/teacher/room (else `400 MISSING_FIELDS`) |
-| `GET /me/groups` | any | STUDENT: own group; TEACHER: groups they teach (see below) |
-| `GET /sessions/:id` | any | ClassSession |
-| `POST /sessions` | ADMIN | `201 { items, seriesId }` |
-| `PATCH /sessions/:id` | ADMIN | `200 { items }` (every occurrence of the scope) |
-| `DELETE /sessions/:id?scope=` | ADMIN | `204`, no notification (for mistakes; cancel instead) |
-| `POST /import` | ADMIN | multipart CSV, see below |
-| `GET /me/calendar-link`, `POST /me/calendar-link/reset` | any | `{ url }` of the ICS feed |
-| `GET /ics/:token.ics` | no auth | `text/calendar` (inline) |
-| `GET /me/calendar.ics` | any | the same calendar as a download (`attachment`) |
-
-- **Ranges**: `from`/`to` are `YYYY-MM-DD` (00:00 campus time), campus wall-clock `YYYY-MM-DDTHH:mm` or ISO with
-  an offset; `to` is exclusive. Default: the current week (Monday 00:00 → next Monday). More than 62 days →
-  `400 RANGE_TOO_LARGE`. Cancelled sessions are included.
-- **Validation**: `endsAt > startsAt`, same day in `APP_TIMEZONE`, at most 8 h; `teacher` must be a TEACHER;
-  1 to 20 groups; subject, groups and room must exist; notes ≤ 1000 characters; `type` ∈ LECTURE, TUTORIAL, LAB, EXAM, OTHER.
-- **Series**: `repeat: { until: "YYYY-MM-DD" }` on create makes a weekly series (same weekday and wall-clock time,
-  DST-safe, at most 26 occurrences) sharing a `seriesId`. `PATCH` and `DELETE` take `scope` (body or query):
-  `occurrence` (default) or `series` = this occurrence and the following ones of its series. In a series update,
-  a time change moves every following occurrence by the same number of days to the new wall-clock times; sending
-  only `startsAt` keeps the duration. `status: "CANCELLED"` cancels, `"SCHEDULED"` restores. `change`
-  (`ROOM` | `TIME` | `CANCELLED`, with the previous room/times) tells clients "Moved from B12" / "Cancelled".
-- **Conflicts**: a SCHEDULED session overlapping another SCHEDULED one with the same room, teacher or any group →
-  `409 SESSION_CONFLICT`, `details.conflicts: [{ sessionId, startsAt, endsAt, reason: ROOM | TEACHER | GROUP,
-  subject }]`. Every occurrence of a series is checked and nothing is written if one conflicts. Cancelled sessions
-  never conflict; restoring one is checked.
-- **Notifications**: a room change, time change, cancellation or restoration of a session that starts in the
-  future and within `NOTIFY_HORIZON_DAYS` (14) sends one `TIMETABLE_CHANGE` notification + push per user (students
-  of the old and new groups, old and new teacher), even for a whole series; link `/dashboard/timetable?date=…`.
-- **Groups a teacher teaches** (`/me/groups` and the announcement audience rule): groups of the teacher's
-  **SCHEDULED** sessions of the **current academic year** (1 September → 31 August, `APP_TIMEZONE`);
-  `timetableService.taughtSessionsFilter(teacherId)`.
-- **CSV import** (`POST /import`, multipart `file`, optional `dryRun=true|false`): UTF-8, `,` or `;` separator
-  (detected on the header line), at most 2000 rows and 2 MB. Columns (any order, header names as below):
-
-  ```csv
-  date,start,end,subject_code,teacher_email,groups,room,type,notes
-  2026-10-12,08:30,10:00,BDD,amira.bensalah@campuslink.local,4TWIN1|4TWIN2,Amphi A,LECTURE,
-  ```
-
-  `date` `YYYY-MM-DD` and `start`/`end` `HH:mm` are campus times; `groups` are group names separated by `|`;
-  `room` (room name), `type` (default LECTURE) and `notes` are optional. All-or-nothing: valid →
-  `200 { dryRun, created, rows }` (`created: 0` with `dryRun`); otherwise `422 IMPORT_INVALID` with
-  `details: { errors: [{ line, code, message, column? }], conflicts: [{ line, sessionId, reason, ... }], rows }`
-  (`line` = line in the file, header = 1). Error codes: `INVALID_ENCODING`, `CSV_PARSE_ERROR`, `EMPTY_FILE`,
-  `TOO_MANY_ROWS`, `MISSING_COLUMNS`, `UNKNOWN_COLUMNS`, `DUPLICATE_COLUMNS`, `TOO_MANY_VALUES`, `MISSING_VALUE`,
-  `INVALID_DATE`, `INVALID_TIME`, `INVALID_TIME_RANGE`, `UNKNOWN_SUBJECT`, `UNKNOWN_TEACHER`, `NOT_A_TEACHER`,
-  `UNKNOWN_GROUP`, `TOO_MANY_GROUPS`, `UNKNOWN_ROOM`, `INVALID_TYPE`, `NOTES_TOO_LONG`. Conflicts are reported
-  against existing sessions and between rows of the file (`otherLine`).
-- **ICS feed**: `GET /me/calendar-link` → `{ url: "<PUBLIC_API_URL>/api/timetable/ics/<token>.ics" }`, stable
-  until reset. `<token>` = `base64url(user id, 12 bytes)` + `.` + `base64url(HMAC-SHA256(JWT_SECRET,
-  "<userId>:<calendarNonce>"))`; only the random nonce is stored (`select: false`) and the token is checked with
-  `timingSafeEqual`. `POST /me/calendar-link/reset` replaces the nonce (old URL → 404, audited as
-  `timetable.calendar_link.reset`). Changing `JWT_SECRET` changes every URL. Accounts that still hold a clear-text
-  `calendarToken` from before get a nonce (and lose that field) on their next calendar-link call; their old URL
-  answers 404. The feed (RFC 5545, UTC times, `UID:<sessionId>@campuslink`, `SEQUENCE` bumped on each change,
-  `STATUS:CANCELLED` for cancelled sessions, `REFRESH-INTERVAL` 1 h, titles in the user's locale) holds the user's
-  sessions from 30 days ago to 120 days ahead. Unknown, malformed or reset token → `404 RESOURCE_NOT_FOUND`.
-
-## Announcements module — `/api/announcements` (Module 7)
-
-Code: `models/announcementModel.js`, `models/announcementReadModel.js`, `controllers/announcementController.js`,
-`service/announcementService.js` (visibility, teacher rule, publication, scheduler, stats), `service/audienceService.js`.
+Code: `models/Post.js`, `models/Comment.js`, `controllers/postController.js`, `controllers/commentController.js`,
+`routes/forumRoutes.js` (mounted at `/api`). Every route needs a signed-in user.
 
 | Endpoint | Who | Answer |
 | -------- | --- | ------ |
-| `GET /?page&limit&unread=true&priority=HIGH,URGENT` | any | `{ items, total, page, limit, unreadCount }`: PUBLISHED announcements the user receives, newest first, each with `read` |
-| `GET /:id` | recipients, author, admins | announcement (+ `read` / `stats`); others `404 RESOURCE_NOT_FOUND` |
-| `POST /:id/read` | any | `204`, idempotent (only recipients' reads are stored) |
-| `GET /:id/attachments/:attachmentId` | same as `GET /:id` | file, `Content-Disposition: attachment` with the UTF-8 name |
-| `GET /manage?status&page&limit` | ADMIN, TEACHER | own announcements (ADMIN: all) with `stats` |
-| `POST /` | ADMIN, TEACHER | `201` announcement |
-| `PATCH /:id` | author, ADMIN | `200` announcement |
-| `POST /:id/publish` | author, ADMIN | DRAFT/SCHEDULED → PUBLISHED now, else `409 INVALID_STATE` |
-| `DELETE /:id` | author, ADMIN | `204`; deletes files, reads and the related notifications |
-| `GET /:id/stats` | author, ADMIN | `{ recipients, reads, readRate, readsByDay: [{ date, count }] }` |
-| `POST /audience-preview` `{ audience }` | ADMIN, TEACHER | `{ recipients }` (same teacher rule) |
+| `GET /api/posts?type&status=active\|closed\|resolved\|all&q&tag&author&sort=recent\|popular&page&limit` | any | `{ posts, page, pages, total }` (status defaults to `active`, limit max 50) |
+| `POST /api/posts` | any | `201` post |
+| `GET /api/posts/me` | any | the user's own posts |
+| `GET /api/posts/:id[?view=0]` | any | post; counts a view unless `view=0` |
+| `PUT /api/posts/:id` | author, ADMIN | post (title, description, tags, images, location, covoiturage, objetPerdu, status) |
+| `PATCH /api/posts/:id/status { status }` | author, ADMIN | post |
+| `DELETE /api/posts/:id` | author, ADMIN | `204`, with its comments |
+| `POST /api/posts/:id/like` | any | `{ liked, likesCount }` (atomic toggle) |
+| `GET /api/posts/:id/comments?page&limit` | any | `{ comments, page, pages, total }`, oldest first |
+| `POST /api/posts/:id/comments { content, parent? }` | any | `201` comment; `parent` must be a top-level comment of the post (one level of replies) |
+| `DELETE /api/comments/:id` | author, ADMIN | `204`, with its replies (`commentsCount` follows) |
 
-- **Body** (JSON, or multipart with a `data` field holding the JSON): `{ title (1..200), body (1..10000, plain
-  text), priority: LOW | NORMAL | HIGH | URGENT, audience, action: "draft" | "publish" | "schedule", publishAt? }`;
-  `schedule` needs `publishAt` ≥ now + 1 min. `PATCH` takes the same fields plus `removeAttachments: [id]`:
-  DRAFT/SCHEDULED can change anything; PUBLISHED only `title`, `body` and `priority` (no new notification),
-  anything else → `409 INVALID_STATE`.
-- **Audience** `{ roles, programs, levels, groups }`: a user receives the announcement when every non-empty
-  criterion matches (role ∈ roles AND group.program ∈ programs AND group.level ∈ levels AND group ∈ groups); an
-  empty audience is everyone; program/level/group criteria only match users with a group. ADMIN may address
-  anyone. A TEACHER needs a non-empty `groups` list of groups they teach (SCHEDULED sessions of the current
-  academic year, see the timetable module) and `roles` empty or `["STUDENT"]`, else `403 AUDIENCE_NOT_ALLOWED`
-  (`details.reason`: `ROLES_NOT_ALLOWED` | `GROUPS_REQUIRED` | `GROUP_NOT_TAUGHT`); other roles `403 FORBIDDEN`.
-- **Attachments**: up to 5 per announcement (multipart field `attachments`), each ≤ `MAX_UPLOAD_MB` (10): pdf, png,
-  jpg/jpeg, webp, docx, xlsx, pptx, txt; MIME type, extension and content (magic bytes) must match. Errors:
-  `413 FILE_TOO_LARGE`, `415 UNSUPPORTED_FILE_TYPE`, `400 TOO_MANY_FILES`. Files are saved through
-  `storageService` (folder `announcements`, see "Files" below) and keep their original (UTF-8) name for downloads.
-- **Publication**: publishing (now, `POST /:id/publish` or the scheduler) is claimed atomically, snapshots
-  `recipients`, records `announcement.publish` and notifies every recipient except the author (`ANNOUNCEMENT`,
-  link `/dashboard/announcements/<id>`, title prefixed `[Urgent]` / `[Important]` for URGENT / HIGH, push urgency
-  from the priority), in the background for HTTP requests.
-- **Scheduler**: job `announcements.publish-due` every `SCHEDULER_INTERVAL_MS` (30 s) publishes the due SCHEDULED
-  announcements (at most 50 per run), each claimed with `findOneAndUpdate`, so several backend instances never
-  publish or notify twice.
-- **Stats**: PUBLISHED → `recipients` snapshotted at publish time, `reads` = AnnouncementRead count, `readRate` =
-  reads / recipients (0..1); DRAFT/SCHEDULED → `recipients` = users matching the audience now, no reads.
-  `readsByDay` lists every day (campus timezone) from the publication day to today, zeros included (at most 400 days).
+- Types: `covoiturage` (needs `covoiturage.departure`, `destination`, `departureDate`, `seats`), `objet_perdu`
+  (needs `objetPerdu.kind`: `perdu` | `trouve`), `experience`, `idee`. Statuses: `active`, `closed`, `resolved`.
+- Authors are populated as `{ _id, firstname, lastname }` (`null` once the account is deleted).
+- Errors: `400 VALIDATION_ERROR` (`details` per field), `400 INVALID_ID`, `403 FORBIDDEN` (not the author nor an
+  admin), `404 RESOURCE_NOT_FOUND`.
 
-## Internal services for modules
+## Internal services
 
 All paths are relative to `backend/`.
 
@@ -215,72 +149,66 @@ router.post('/', requireAuth, requireRole('ADMIN', 'TEACHER'), handler);   // 40
 
 `req.user` is the full User document (role read from the database). Its `group` is **populated**:
 `req.user.group = { _id, name, level, academicYear, program: { _id, name, code } } | null`.
-`req.sessionId` is the login session of the access token (its `sid` claim, see "Sessions" below), or `null`
-for a token issued before sessions had ids (such tokens keep working until they expire).
-`middleware/optionalAuth.js` sets `req.user` (and `req.sessionId`) when a valid token is present and continues
-anonymously otherwise.
+`req.sessionId` is the login session of the access token (its `sid` claim), or `null` for a token issued before
+sessions had ids (such tokens keep working until they expire).
 
 ### User model — `models/userModel.js`
 
-Fields added in phase 1: `locale` (`'fr' | 'en'`, default `'fr'`), `group` (ObjectId → Group, students only),
-`calendarNonce` (`select: false`: random secret of the ICS feed URL, see the timetable module below; the URL
-token itself is never stored).
-
+- Roles: `STUDENT`, `TEACHER`, `ADMIN`, `ALUMNI` (`User.ROLES`). `locale` (`'fr' | 'en'`, default `'fr'`),
+  `group` (ObjectId → Group, students only).
 - Every `User.find*()` query populates `group` (+ its program) automatically, so serialized users have the
   public shape. It is skipped when the projection excludes `group` (`.select('firstname lastname')`,
   `Model.exists`) or with `.setOptions({ populateGroup: false })`.
 - After `user.save()` with a changed group, call `await user.populateGroup()` before sending it.
 - Exports: `User.ROLES`, `User.LOCALES`, `User.GROUP_POPULATE`.
 - Public JSON: `{ id, firstname, lastname, email, role, twoFactorEnabled, locale, group, createdAt, updatedAt }`.
+- `DELETE /api/users/:id`: the account loses its sessions, push subscriptions, real-time connections and in-app
+  notifications; its forum posts and comments stay (author `null`, shown as "Unknown").
+- Account notifications (`service/accountNotifications.js`, type `ACCOUNT`, in-app + push, French with "tu"):
+  `PATCH /api/users/:id` tells the user what an admin changed (role, group, password; not their own edits). With a
+  new password the notification is sent first, then the sessions and push subscriptions are revoked. A public
+  sign-up (`POST /api/auth/signup`) notifies every admin (link `/dashboard/admin/users?q=<email>`).
 
 ### Academic models
 
-`Program` (`summarizeProgram(p)` → `{ id, name, code }`), `Group` (`summarizeGroup(g)` →
-`{ id, name, level, academicYear, program }`; `MIN_LEVEL`, `MAX_LEVEL`, `isAcademicYear`, `NAME_COLLATION`),
-`Subject` (`SUBJECT_COLORS`, `pickSubjectColor(i)`), `Room` (`ROOM_TYPES`, `NAME_COLLATION`).
-Group names are unique per academic year and room names are unique, both ignoring case: query them with
-`.collation(Group.NAME_COLLATION)` / `.collation(Room.NAME_COLLATION)` for case-insensitive lookups (CSV import).
-
-`DELETE /api/academic/...` answers `409 IN_USE` with `details.references` = counts of what still points to the
-resource: `{ groups?, users?, sessions?, announcements? }`. `DELETE /api/users/:id` does the same for a TEACHER
-who still has SCHEDULED sessions that have not ended: `409 IN_USE`, `details.references.sessions` (reassign or
-cancel them first; past and cancelled sessions do not block). Sessions are counted through
-`mongoose.models.ClassSession` (`subject`, `room`, `groups` fields) and announcements through
-`mongoose.models.Announcement` (`audience.programs`, `audience.groups`) when those models are registered.
-A deleted account loses its sessions, push subscriptions, real-time connections and in-app notifications, and its
-alumni network data is erased (`alumniService.purgeUser`: profile and posts deleted, mentoring history anonymized).
+`Program` (`summarizeProgram(p)` → `{ id, name, code }`) and `Group` (`summarizeGroup(g)` →
+`{ id, name, level, academicYear, program }`; `MIN_LEVEL`, `MAX_LEVEL`, `isAcademicYear`, `NAME_COLLATION`).
+Group names are unique per academic year, ignoring case: query them with `.collation(Group.NAME_COLLATION)`.
+`GET /api/academic/groups` (ADMIN) lists them with `studentCount` for the users page, where admins put a student in
+a group (`PATCH /api/users/:id { group }`). There is no API to create or edit programs and groups yet:
+`npm run seed:demo` creates 3 programs and 4 groups.
 
 ### Audit — `service/auditService.js`
 
 ```js
 const auditService = require('../service/auditService');
 await auditService.record(req, {
-  action: 'timetable.session.cancel',    // contract section 5 names
-  targetType: 'ClassSession',            // model name
-  targetId: session._id,
-  summary: 'Cancelled BDD for 4TWIN1 on 2026-10-08 10:30',  // short English sentence
-  metadata: { scope: 'series', count: 4 },                  // secrets are redacted automatically
+  action: 'user.update',                 // "<area>.<verb>"
+  targetType: 'User',                    // model name
+  targetId: user._id,
+  summary: 'Updated amira.bensalah@campuslink.local (role)',  // short English sentence
+  metadata: { changed: ['role'] },                            // secrets are redacted automatically
   // actor: user,                         // optional: overrides req.user (e.g. unauthenticated flows)
 });
 ```
 
 Actor = `req.user` (snapshotted), IP = `req.ip` (honours `TRUST_PROXY`), User-Agent from the request.
-Never throws (failures are logged); resolves to the entry or `null`.
+Never throws (failures are logged); resolves to the entry or `null`. Recorded today: `user.create`, `user.update`,
+`user.delete`, `auth.password_reset`, `auth.password_change`.
 
-### Notifications — `service/notificationService.js`
+### Notifications — `service/notificationService.js` + `models/notificationModel.js`
 
 ```js
 const { notifyUsers, notifyUsersInBackground } = require('../service/notificationService');
 
 const report = await notifyUsers(userIds, (locale) => ({
-  type: 'TIMETABLE_CHANGE',               // 'TIMETABLE_CHANGE' | 'ANNOUNCEMENT' | 'SYSTEM'
-  title: locale === 'fr' ? 'Bases de données : salle changée B12 → A04 (mar. 8 oct., 10:30)'
-                         : 'Databases: room changed B12 → A04 (Tue, Oct 8, 10:30)',
+  type: 'SYSTEM',                         // 'TIMETABLE_CHANGE' | 'ANNOUNCEMENT' | 'SYSTEM' | 'ACCOUNT'
+  title: locale === 'fr' ? 'Ton post a un nouveau commentaire' : 'Your post has a new comment',
   body: '',
-  link: '/dashboard/timetable?date=2026-10-08',   // relative web path
-  data: { sessionId: String(session._id) },         // small JSON object
-  tag: `session-${session._id}`,                    // optional: push tag (same tag replaces the OS notification)
-  urgency: 'high',                                  // optional: web push urgency
+  link: `/dashboard/forum/${post._id}`,   // relative web path
+  data: { postId: String(post._id) },     // small JSON object
+  tag: `post-${post._id}`,                // optional: push tag (same tag replaces the OS notification)
+  urgency: 'normal',                      // optional: web push urgency
 }));
 // report = { notified, push: { sent, outbox, removed, skipped, failed }, error? }
 ```
@@ -288,25 +216,27 @@ const report = await notifyUsers(userIds, (locale) => ({
 - `userIds`: ids, id strings or documents; duplicates, invalid and unknown ids are ignored.
 - `buildMessage(locale)` is called once per locale (French uses "tu"); declare a second parameter
   `(locale, user)` to be called once per user (`user = { _id, locale }`). It may be async.
-- Creates the in-app notifications in batches of 500, then pushes to every subscription of each user.
-  Options: `notifyUsers(ids, build, { push: false })`.
+- Creates the in-app notifications in batches of 500, emits `notification:new` to the user's open Socket.IO
+  clients, then pushes to every subscription of each user. The push `data` carries `notificationId`, `type` and
+  `unreadCount` (the installed app's icon badge). Options: `notifyUsers(ids, build, { push: false })`.
 - **Never throws and never rejects**: `notifyUsersInBackground(ids, build)` starts it on the next tick so the
   HTTP response is not delayed.
+- Notification JSON: `{ id, type, title, body, link, data, readAt, createdAt }` (title ≤ 200, body ≤ 1000 characters).
 
 ### Push — `service/pushService.js`
 
 `isConfigured()`, `getPublicKey()`, `sendToUser(userId, payload)`, `sendToUsers([{ userId, payload }])`,
 `sendToSubscription(subscriptionDoc, payload)`. Payload `{ title, body, link, tag, data }` (+ optional `urgency`).
 All of them never throw and resolve to `{ sent, outbox, removed, skipped, failed }`. Subscriptions answering
-404/410 are deleted; FCM subscriptions are stored and skipped in phase 1. With `PUSH_OUTBOX_FILE`, each push is
-appended as `{ userId, subscriptionId, type, endpoint, payload, sentAt }` instead of being sent.
-Normally you only call `notificationService.notifyUsers`, which pushes for you.
+404/410 are deleted; FCM subscriptions are stored and skipped. With `PUSH_OUTBOX_FILE`, each push is appended as
+`{ userId, subscriptionId, type, endpoint, payload, sentAt }` instead of being sent. Normally you only call
+`notificationService.notifyUsers`, which pushes for you.
 
 Each subscription belongs to the login session that registered it (`sessionId` = the access token's `sid`, `null`
-for an old token without one). Logout (revoking that session's refresh token) deletes the session's subscriptions,
-`tokenService.revokeAllRefreshTokens(userId)` (password change or reset, admin password change, account deletion)
-deletes all of the user's, and the hourly job `push.prune-ended-sessions` deletes those whose session expired.
-A user keeps at most 10 subscriptions: registering an 11th drops the least recently updated one.
+for an old token without one). Logout deletes the session's subscriptions, `tokenService.revokeAllRefreshTokens(userId)`
+(password change or reset, admin password change, account deletion) deletes all of the user's, and the hourly job
+`push.prune-ended-sessions` deletes those whose session expired. A user keeps at most 10 subscriptions: registering
+an 11th drops the least recently updated one.
 
 Web push endpoints are restricted to the browser push services (`utils/pushEndpoint.js`): `https://` with no
 port and no credentials, host `fcm.googleapis.com` or a subdomain of `push.services.mozilla.com`,
@@ -315,23 +245,16 @@ port and no credentials, host `fcm.googleapis.com` or a subdomain of `push.servi
 parties (SSRF). `sendToSubscription` checks again before sending (and before the outbox): a stored subscription
 that fails the check is never contacted, it is deleted and counted as `removed`.
 
-### Audience — `service/audienceService.js`
+### Real time — `service/realtime.js`
 
-Audience = `{ roles: [Role], programs: [programId], levels: [int], groups: [groupId] }` (contract section 7).
-
-```js
-const audience = require('../service/audienceService');
-const parsed = await audience.parseAudience(body.audience);  // validates; 400 VALIDATION_ERROR with
-                                                              // details['audience.roles' | ...programs | ...levels | ...groups]
-audience.userMatchesAudience(req.user, announcement.audience); // sync; user.group must be populated (req.user is)
-const ids = await audience.resolveAudienceUserIds(parsed);     // ObjectId[] of every matching user
-const count = await audience.countAudience(parsed);            // number (audience preview)
-const filter = await audience.buildAudienceFilter(parsed);     // User filter, or null when nobody matches
-```
-
-Arrays may hold ids, id strings or populated documents.
+Socket.IO on the same HTTP server (`realtime.init(server)` in `app.js`), origins from `CORS_ORIGINS`.
+`realtime.emitToUser(userId, event, payload)` (never throws) and `realtime.disconnectUser(userId)`. A client
+authenticates with an access token (mobile) or a single-use ticket (web, see the comment at the top of
+`service/realtime.js`); the ticket route `GET /api/realtime/ticket` that `lib/realtime` calls is not mounted yet.
 
 ### Files — `service/storageService.js` + `middleware/upload.js`
+
+Not used by a route yet; ready for uploads (e.g. forum images).
 
 ```js
 const { createUpload, FILE_TYPES } = require('../middleware/upload');
@@ -342,11 +265,10 @@ router.post('/', requireAuth, createUpload({ field: 'attachments', maxCount: 5 }
   const data = JSON.parse(req.body.data ?? '{}');           // text fields are strings
   for (const file of req.files) {                           // { originalname, mimetype, size, buffer }
     const saved = await storageService.save({
-      buffer: file.buffer, originalName: file.originalname, mimeType: file.mimetype, folder: 'announcements',
+      buffer: file.buffer, originalName: file.originalname, mimeType: file.mimetype, folder: 'forum',
     });                                                      // → { key, filename, size, mimeType }
   }
 });
-router.post('/import', createUpload({ field: 'file', types: FILE_TYPES.CSV, maxFileSizeMb: 2 }), handler); // req.file
 
 await storageService.sendFile(res, key, { filename, mimeType });   // download (Content-Disposition: attachment)
 const stream = await storageService.stream(key);                  // 404 RESOURCE_NOT_FOUND when missing
@@ -354,9 +276,8 @@ await storageService.remove(key);                                  // idempotent
 ```
 
 - `createUpload({ field = 'file', maxCount = 1, types = FILE_TYPES.ATTACHMENTS, maxFileSizeMb = MAX_UPLOAD_MB, checkContent = true })`.
-  `FILE_TYPES.ATTACHMENTS` = pdf, png, jpg/jpeg, webp, docx, xlsx, pptx, txt; `FILE_TYPES.CSV` = .csv (text/csv,
-  application/vnd.ms-excel, text/plain, application/octet-stream...). MIME type **and** extension must match,
-  and the content is checked (magic bytes; no NUL bytes in text files).
+  `FILE_TYPES.ATTACHMENTS` = pdf, png, jpg/jpeg, webp, docx, xlsx, pptx, txt; `FILE_TYPES.CSV` = .csv. MIME type
+  **and** extension must match, and the content is checked (magic bytes; no NUL bytes in text files).
 - Errors: `413 FILE_TOO_LARGE`, `415 UNSUPPORTED_FILE_TYPE`, `400 TOO_MANY_FILES`, `400 VALIDATION_ERROR`
   (unexpected file field, malformed multipart).
 - Files are stored under generated keys (`<folder>/YYYY/MM/<32 hex>.<ext>`); store the `key` and the original
@@ -364,23 +285,16 @@ await storageService.remove(key);                                  // idempotent
 - **Storage driver** (`STORAGE_DRIVER`, read at call time; same API, errors and keys for both):
   - `disk` (default): files under `STORAGE_DIR` (default `backend/uploads`, git-ignored). For local development, a
     VPS or any host with a persistent disk.
-  - `gridfs`: files in MongoDB, GridFS bucket `uploads` of the mongoose connection (`uploads.files` /
-    `uploads.chunks`), the key as the GridFS `filename`, `metadata: { mimeType, originalName }`. A unique index on
-    `filename` (fast lookups, a key is never written twice) and the chunks index are created on the first storage
-    call. For hosts without a persistent disk, such as the **Render free tier** (its disk is wiped on every
-    restart and redeploy, so disk files would be lost). Files count towards the database size: the MongoDB Atlas
-    free tier (M0) holds **512 MB** in all (data, files and indexes), i.e. at most about 50 files of the 10 MB
-    `MAX_UPLOAD_MB` limit, fewer with the rest of the data.
-  - Switching drivers does not move files: keys saved with one driver answer 404 with the other (run
-    `npm run seed:demo` again for the demo files).
-- `file.originalname` is UTF-8 (`defParamCharset: 'utf8'`): `filename="été.pdf"` sent as raw UTF-8 bytes, as
-  browsers do, is kept as is (multer's default would read it as latin1).
+  - `gridfs`: files in MongoDB, GridFS bucket `uploads` of the mongoose connection. For hosts without a persistent
+    disk (e.g. the Render free tier). Files count towards the database size (MongoDB Atlas M0: 512 MB in all).
+  - Switching drivers does not move files: keys saved with one driver answer 404 with the other.
+- `file.originalname` is UTF-8 (`defParamCharset: 'utf8'`).
 
 ### Scheduler — `service/scheduler.js`
 
 ```js
 const scheduler = require('../service/scheduler');
-scheduler.registerJob('announcements.publish-due', scheduler.defaultIntervalMs(), async () => {
+scheduler.registerJob('posts.close-past-trips', scheduler.defaultIntervalMs(), async () => {
   // claim work atomically (findOneAndUpdate): several backend instances may run the same job
 });
 ```
@@ -388,19 +302,20 @@ scheduler.registerJob('announcements.publish-due', scheduler.defaultIntervalMs()
 `registerJob(name, intervalMs, fn, { runOnStart = true })` → `{ stop, runNow }`. Register at module load time:
 `app.js` starts the jobs after the MongoDB connection (first run ~1 s later) and stops them on shutdown. A job
 never overlaps itself (next run = end of the previous one + interval), errors are logged, timers are unref'd.
-Jobs never run when `app.js` is only imported (`require('./app')`), e.g. by scripts.
+Jobs never run when `app.js` is only imported (`require('./app')`), e.g. by scripts. Registered today:
+`push.prune-ended-sessions` (hourly).
 
 ### Validation helpers — `utils/validation.js`
 
 - Throwing: `requireFields(body, fields)` (400 `MISSING_FIELDS` then `VALIDATION_ERROR` for non-strings),
-  `throwIfInvalid(details)`, `assertObjectId(id)` (400 `INVALID_ID`), `notFound('Announcement')`
+  `throwIfInvalid(details)`, `assertObjectId(id)` (400 `INVALID_ID`), `notFound('Post')`
   (→ `HttpError` 404 `RESOURCE_NOT_FOUND`, to throw), `validationError(details)`.
 - Collecting (`details` is a `{ field: message }` object, call `throwIfInvalid(details)` afterwards):
   `readString(v, field, details, { min, max })`, `readInteger(v, field, details, { min, max })`,
   `readEnum(v, allowed, field, details)`, `readDate(v, field, details)`, `readBoolean(v, field, details)`,
   `readObjectId(v, field, details)`, `readObjectIdList(v, field, details, { max })`.
 - Other: `parsePagination(req.query)` → `{ page, limit, skip }`, `parseBooleanQuery(v)`, `escapeRegex(s)`,
-  `normalizeEmail(s)`, `normalizeLocale(s)`, `checkPassword(pw)`, `LOCALES`.
+  `normalizeEmail(s)`, `normalizeLocale(s)`, `checkPassword(pw)`, `isBlank(v)`, `LOCALES`.
 
 ### Time helpers — `utils/time.js` (campus timezone, weeks start on Monday)
 
@@ -413,38 +328,35 @@ Jobs never run when `app.js` is only imported (`require('./app')`), e.g. by scri
 
 ### Other helpers
 
-- `utils/env.js`: `envString`, `envBool`, `envNumber(name, fallback)` (e.g. `envNumber('NOTIFY_HORIZON_DAYS', 14)`),
-  `isProduction()`, `publicApiUrl()` (`PUBLIC_API_URL` without trailing slash).
+- `utils/env.js`: `envString`, `envBool`, `envNumber(name, fallback)`, `isProduction()`, `trustProxySetting()`,
+  `publicApiUrl()` (`PUBLIC_API_URL` without trailing slash).
 - `utils/serialize.js`: `idOf(value)`, `isPopulated(value)`, `refSummary(value, ['name', 'code'])`, `cleanTransform(hidden)`.
 - `service/mailService.js`: `sendEmail({ to, subject, text, html })` (throws on failure; fails in production
-  without SMTP), `escapeHtml`, `BRAND_COLOR`.
+  without SMTP), `isSmtpConfigured()`, `escapeHtml`, `BRAND_COLOR`.
 
 ### Error codes
 
-Existing: `AUTH_REQUIRED`, `TOKEN_EXPIRED`, `INVALID_TOKEN`, `FORBIDDEN`, `MISSING_FIELDS`, `VALIDATION_ERROR`,
+`AUTH_REQUIRED`, `TOKEN_EXPIRED`, `INVALID_TOKEN`, `FORBIDDEN`, `MISSING_FIELDS`, `VALIDATION_ERROR`,
 `INVALID_ID`, `INVALID_JSON`, `PAYLOAD_TOO_LARGE`, `NOT_FOUND` (unknown route), `NO_CHANGES`, `USER_NOT_FOUND`,
 `EMAIL_TAKEN`, `INVALID_ROLE`, `INVALID_CREDENTIALS`, `OTP_INVALID`, `OTP_TOO_MANY_ATTEMPTS`,
-`INVALID_REFRESH_TOKEN`, `RESET_TOKEN_INVALID`, `INVALID_PASSWORD`, `CANNOT_DELETE_SELF`, `EMAIL_FAILED`.
-Phase 1: `RESOURCE_NOT_FOUND` (404), `ALREADY_EXISTS` (409, `details.field`), `IN_USE` (409,
-`details.references`), `INVALID_STATE` (409), `TOO_MANY_REQUESTS` (429, `details.retryAfter`),
-`RANGE_TOO_LARGE` (400), `PUSH_DISABLED` (503), `FILE_TOO_LARGE` (413), `UNSUPPORTED_FILE_TYPE` (415),
-`TOO_MANY_FILES` (400). Module codes: `SESSION_CONFLICT`, `IMPORT_INVALID`, `AUDIENCE_NOT_ALLOWED`.
+`INVALID_REFRESH_TOKEN`, `RESET_TOKEN_INVALID`, `INVALID_PASSWORD`, `CANNOT_DELETE_SELF`, `EMAIL_FAILED`,
+`RESOURCE_NOT_FOUND` (404), `ALREADY_EXISTS` (409, `details.field`), `IN_USE` (409, `details.references`),
+`CONFLICT` (409), `TOO_MANY_REQUESTS` (429, `details.retryAfter`), `PUSH_DISABLED` (503), `FILE_TOO_LARGE` (413),
+`UNSUPPORTED_FILE_TYPE` (415), `TOO_MANY_FILES` (400).
 
 ### Seed plugins — `scripts/seed/*.js`
 
-`npm run seed:demo` creates the core data, then runs every `scripts/seed/*.js` in name order
-(`10-timetable.js`, `20-announcements.js`). A plugin exports `async (ctx) => {}` (or `{ name, run }`) and must
-be idempotent (delete what it created before, or upsert). It must not send notifications.
+`npm run seed:demo` creates the core data (programs, groups, accounts), then runs every `scripts/seed/*.js` in
+name order (`10-forum.js`: posts of every type with comments and replies). A plugin exports `async (ctx) => {}`
+(or `{ name, run }`) and must be idempotent (delete what it created before, or upsert). It must not send
+notifications.
 
 ```js
 ctx = {
   academicYear,                        // '2026-2027'
   programs: { TWIN, DS, SAE },         // documents by code
   groups: { '4TWIN1', '4TWIN2', '4DS1', '4SAE1' },   // documents by name (level 4)
-  subjects: { BDD, WEB, ML, ARCH, ENG, AGILE },       // documents by code
-  rooms: { A04, A12, B12, C201, C202, 'Amphi A' },    // documents by name
-  users: { admin, teachers: [4], students: [13], alumni: [1], studentsByGroup: { '4TWIN1': [3], ... }, byEmail },
-  teaching: [{ subject, teacher, groups: [group] }],  // suggested "who teaches what to whom"
+  users: { admin, teachers: [4], students: [15], alumni: [1], studentsByGroup: { '4TWIN1': [5], ... }, byEmail },
   mongoose, models,                    // mongoose.models
   time,                                // utils/time.js
   timezone, now, password,             // 'Africa/Tunis', Date, 'Campus123!'
@@ -455,19 +367,3 @@ ctx = {
 Demo accounts: `admin@campuslink.local`, teachers `amira.bensalah@`, `karim.trabelsi@`, `leila.gharbi@` (en),
 `mehdi.jaziri@`, students such as `yasmine.haddad@campuslink.local` (4TWIN1) and `skander.mejri@` (no group),
 alumni `selim.rekik@`; all with the password `Campus123!`.
-
-## Phase 2 modules
-
-Each phase 2 module documents itself (see also docs/phase2-contract.md):
-
-- [Bookings (module 5)](docs/bookings.md)
-- [Forum (module 4)](docs/forum.md)
-- [Attendance, grades and analytics (module 9)](docs/analytics.md)
-
-## Phase 3 modules
-
-See also docs/phase3-contract.md:
-
-- [Carpooling and the real-time layer (module 2)](docs/carpool.md)
-- [Notes marketplace (module 3)](docs/marketplace.md)
-- [Alumni network (module 6)](docs/alumni.md)

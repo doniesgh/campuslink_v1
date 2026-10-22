@@ -1,15 +1,36 @@
-# CampusLink web (Next.js)
+# CampusLink
 
-Next.js 16 (App Router) + React 19 + Tailwind CSS v4 + next-intl. Talks to the CampusLink backend (`../backend`).
-Installable PWA with an offline mode (service worker + IndexedDB).
+Campus web app: Next.js 16 (App Router) + React 19 + Tailwind CSS v4 + next-intl, with its REST API in `backend/`
+(Express 5 + MongoDB, see [backend/README.md](backend/README.md)). Installable PWA with an offline mode (service
+worker + IndexedDB).
+
+Features: sign-up and login (two-step verification by email, password reset), dashboard, account (profile,
+language, password, push notifications, install), in-app and push notifications, the forum (carpools, lost and
+found items, experiences, ideas) and, for admins, offline-first user management and the audit log.
 
 ## Getting started
 
+Requirements: Node.js 20+ and MongoDB (local server or Atlas). npm is the package manager (`package-lock.json`,
+Vercel runs `npm ci`).
+
 ```bash
+# 1. API on http://localhost:4000
+cd backend
+npm install
+cp .env.example .env         # set MONGO_URI and JWT_SECRET
+npm run generate-vapid       # optional, for push notifications: paste the two lines into .env
+npm run seed:demo            # optional: demo accounts and forum posts
+npm run dev                  # nodemon (npm start: plain node)
+
+# 2. Web app on http://localhost:3000 (another terminal, repository root)
 cp .env.example .env.local   # API_URL=http://localhost:4000
 npm install
-npm run dev                  # http://localhost:3000
+npm run dev                  # or: npm run build && npm start
 ```
+
+Demo accounts (`npm run seed:demo`): `admin@campuslink.local`, students such as `yasmine.haddad@campuslink.local`
+(4TWIN1) or `skander.mejri@campuslink.local` (no group), teachers such as `amira.bensalah@campuslink.local`; every
+demo account uses the password `Campus123!`.
 
 Checks: `npx tsc --noEmit`, `npm run lint`, `npm run build`.
 Parallel builds: `NEXT_DIST_DIR=.next-<name> npm run build` (folders `.next-*` are git-ignored; Next adds
@@ -26,6 +47,7 @@ Parallel builds: `NEXT_DIST_DIR=.next-<name> npm run build` (folders `.next-*` a
 | `NEXT_DIST_DIR`            | `.next`                 | Build/output folder, for side-by-side builds (tests, parallel work).                 |
 | `NEXT_PUBLIC_APP_TIMEZONE` | `Africa/Tunis`          | Campus timezone of every displayed date/time (inlined at build time).               |
 | `NEXT_PUBLIC_ENABLE_SW`    | unset                   | `true` registers the service worker with `next dev` too (production always does).    |
+| `NEXT_PUBLIC_REALTIME_URL` | `http://localhost:4000` | Socket.IO server of `lib/realtime` (allowed by the page CSP).                         |
 | `TRUSTED_PROXY_HOPS`       | `0`                     | Reverse proxies in front of Next.js that write the client address (server-only).     |
 
 **Client IP.** Next.js keeps an `X-Forwarded-For` sent by the browser, and the backend trusts Next.js
@@ -74,26 +96,26 @@ subscriptions when every session is revoked (change password). `resyncPushSubscr
 registers the browser's existing subscription again for the current session (`POST /bff/push/subscriptions`,
 idempotent upsert; never asks for permission, never throws): after "Change password" succeeds without two-step
 verification, and once per tab session per user when the dashboard mounts online (after `adoptOwner()`,
-`sessionStorage` key `cl-push-resync:<userId>`).
+`sessionStorage` key `cl-push-resync:<userId>`). `enablePush()` / `disablePush()` in the same file subscribe and
+unsubscribe this browser (the "Notifications" switch of the account page, "This device").
 
 ## Languages (next-intl, no locale routing)
 
 - Locale = cookie `NEXT_LOCALE` → `Accept-Language` (first of fr/en) → `fr` (`i18n/request.ts`). URLs never change.
 - Messages: `messages/<locale>/<namespace>.json`, namespaces `common, landing, auth, dashboard, account, admin,
-  notifications, offline, timetable, announcements`. Keys are type-checked against the English files
+  notifications, offline` (`NAMESPACES` in `i18n/config.ts`). Keys are type-checked against the English files
   (`global.d.ts`): every key must exist in **both** `en` and `fr`. French uses "tu", warm and simple.
-- English texts are part of the UI contract (the Playwright suite runs in English): never reword them.
 - Switcher: `<LanguageSwitcher />` (select labelled "Language"/"Langue"); it sets the cookie and, when signed in,
   `PATCH /api/users/me { locale }`. Signup sends the current locale; login keeps the language the user is looking
   at (cookie, else browser language, else the account's) and saves it to `user.locale` when it differs.
-- Server: `const t = await getTranslations("admin.users")`; Client: `const t = useTranslations("timetable")`.
-- Client Components only receive the namespaces of their route group (`components/i18n/client-messages.tsx`), so
-  a page does not ship all ten namespaces: root layout `common` + `offline`; `(front)` + `landing`; `(auth)` +
-  `auth`; `/dashboard` + `dashboard, account, notifications, timetable, announcements` (`DASHBOARD_NAMESPACES`);
-  `/dashboard/account` + `auth` (password field); `/dashboard/admin/*` + `admin`. A nested provider replaces the
-  messages of its parent: when a Client Component (or a shared component rendered inside one) starts using
-  another namespace on a page, add it to that group's `<ClientMessages namespaces>` or the browser logs
-  `MISSING_MESSAGE`. Server Components are not concerned (they read every namespace).
+- Server: `const t = await getTranslations("admin.users")`; Client: `const t = useTranslations("notifications")`.
+- Client Components only receive the namespaces of their route group (`components/i18n/client-messages.tsx`):
+  root layout `common` + `offline`; `(front)` + `landing`; `(auth)` + `auth`; `/dashboard` + `dashboard, account,
+  notifications` (`DASHBOARD_NAMESPACES`); `/dashboard/account` + `auth` (password field); `/dashboard/admin/*` +
+  `admin`. A nested provider replaces the messages of its parent: when a Client Component starts using another
+  namespace on a page, add it to that group's `<ClientMessages namespaces>` or the browser logs `MISSING_MESSAGE`.
+  Server Components are not concerned (they read every namespace).
+- The forum's texts are not in next-intl yet: they are English constants in `lib/forum/strings.ts`.
 - Dates: `format.dateTime(date, "time" | "date" | "dayMonth" | "weekdayDayMonth" | "weekdayLong" | "dateTime" |
   "dayMonthTime")` (presets in `i18n/config.ts`); the formatter already uses the campus timezone (24h times).
 - Backend error codes: `useErrorFormatter()` (`lib/i18n/client.ts`) / `getErrorFormatter()` (`lib/i18n/server.ts`)
@@ -112,9 +134,8 @@ verification, and once per tab session per user when the dashboard mounts online
   2. a session cookie (`cl_access` or `cl_refresh`), else 401 `AUTH_REQUIRED`;
   3. a body of at most 5 × `MAX_UPLOAD_MB` + 1 MB (51 MB by default), else 413 `PAYLOAD_TOO_LARGE`:
      `Content-Length` is checked first, and the limit is enforced while the body is read (chunked uploads).
-- JSON, multipart uploads and binary/ICS downloads pass through (`Content-Type`, `Content-Disposition`);
-  responses are `Cache-Control: private, no-store`. Backend unreachable → 502 `NETWORK_ERROR`.
-- File links can point straight at it: `<a href="/bff/announcements/<id>/attachments/<aid>">`.
+- JSON, multipart uploads and binary downloads pass through (`Content-Type`, `Content-Disposition`); responses are
+  `Cache-Control: private, no-store`. Backend unreachable → 502 `NETWORK_ERROR`.
 
 ## Data layer (offline-first, Client Components)
 
@@ -127,36 +148,46 @@ import { queueMutation, useOfflineQuery, useQueryClient, useOnlineStatus } from 
 
 // Reads: stale-while-revalidate. Saved data first (with savedAt), then /bff/<path> when online,
 // again on reconnect, on tab focus and every `refreshInterval` ms. Path relative to /api.
-const { data, savedAt, isLoading, error, refresh, mutate } = useOfflineQuery<MyType>(
-  ["timetable", "week", date],              // key: string or array ("timetable:week:2026-10-05")
-  `/timetable/me?from=${from}&to=${to}`,    // null disables the query
+const { data, savedAt, isLoading, error, refresh, mutate } = useOfflineQuery<NotificationList>(
+  ["notifications", "list", page],          // key: string or array ("notifications:list:1")
+  `/notifications?page=${page}&limit=20`,   // null disables the query
   { refreshInterval: 0, fallbackData: undefined }
 );
 
-// Writes (idempotent only in phase 1): sent now when online; queued in IndexedDB when offline or when the
-// server can't be reached, then replayed on reconnection and by Background Sync. Last write wins per method+path.
-const result = await queueMutation({ method: "POST", path: `/announcements/${id}/read` });
-// result.status: "sent" (result.data) | "queued" | "failed" (result.error: BffError, a real API error)
+// Writes: sent now when online; queued in IndexedDB when offline or when the server can't be reached, then
+// replayed on reconnection and by Background Sync. Last write wins per key ("<METHOD> <path>" by default).
+const result = await queueMutation({ method: "POST", path: `/notifications/${id}/read` });
+// result.status: "sent" (result.data) | "queued" (result.id) | "failed" (result.error: BffError, a real API error)
 
-// Optimistic updates of other queries: useQueryClient().setQueryData(key, updater); .invalidate("timetable")
+// Non-idempotent writes and module-owned changes (see the user management module):
+await queueMutation({
+  method: "POST", path: "/users", body,
+  key: `POST /users#${localId}`,       // several creations can wait side by side
+  scope: "users", info: { kind: "create", userId: localId, name }, // listed by useOutbox("users")
+  keepRejected: true,                  // a 4xx on replay keeps the record with `rejected` instead of dropping it
+});
+const records = useOutbox("users");    // waiting + refused changes of the scope, kept up to date
+await removeOutboxRecord(id);          // "Undo" / "Discard"
+await retryOutboxRecord(id);           // send a refused change again
+
+// Optimistic updates of other queries: useQueryClient().setQueryData(key, updater); .invalidate("notifications")
 ```
 
 - **Render the first data on the server** and hand it to the hook, so a page makes no API request from the browser
-  when it loads (faster, and no race with tests that clear cookies right after the dashboard appears):
+  when it loads:
 
   ```tsx
   // page.tsx (Server Component)
-  const initial = await serverSnapshot<MyType | null>(`/timetable/me?from=${from}&to=${to}`, null); // lib/server-api.ts
+  const initial = await serverSnapshot<NotificationList | null>("/notifications?page=1&limit=20", null); // lib/server-api.ts
   return <MyView initial={initial} />;
   // my-view.tsx ("use client")
-  useOfflineQuery<MyType>(key, path, {
+  useOfflineQuery<NotificationList>(key, path, {
     fallbackData: initial.data ?? undefined,
     fallbackSavedAt: initial.savedAt, // an offline copy of an old page never overwrites newer saved data
     revalidateOnMount: !initial.data,
   });
   ```
 
-  Dashboard widgets (`TodayWidget`, `LatestWidget`) should follow this pattern too.
 - The fallback options belong to the key they were first passed with. When the key changes (filters, paging)
   while the same `fallbackData` object is still passed, the new key gets no fallback (it shows its own saved
   data or a skeleton, never the previous key's data) and revalidates on mount. A new `fallbackData` object passed
@@ -167,135 +198,153 @@ const result = await queueMutation({ method: "POST", path: `/announcements/${id}
   one `/api/auth/refresh` call (the backend rotates refresh tokens), and the new pair is reused for 30 s.
 - `useOnlineStatus()`, `usePendingCount()`: connectivity and outbox size (the banner already shows both).
 - Pages using `useOfflineQuery` automatically feed the banner's "Last updated <time>".
-- **Mutations that can fail with an expected 4xx** (forms, conflicts, validation) should use **Server Actions**
-  with `serverApi()` (`lib/server-api.ts`), not the BFF: Chromium logs every non-2xx `fetch` as a console error,
-  which fails the Playwright browser guard. See `app/(back)/dashboard/admin/users/actions.ts`:
+- **Mutations that can fail with an expected 4xx** (forms, conflicts, validation) and don't need to work offline
+  should use **Server Actions** with `serverApi()` (`lib/server-api.ts`), not the BFF: Chromium logs every non-2xx
+  `fetch` as a console error. See `app/(back)/dashboard/account/actions.ts` (two-step verification, password):
   `serverApi(path, { method, body })` (FormData = multipart), `actionSuccess(message)`, `actionFailure(error)`
-  (localised; 401 → `/auth/expired`), then `refresh()` from `next/cache` to re-render the page.
+  (localised; 401 → `/auth/expired`), then `refresh()` from `next/cache` to re-render the page. Offline-capable
+  forms (users, profile) use `queueMutation` and validate in the browser first, so a 4xx stays rare.
 
-## Offline mode / PWA (Module 8)
+Real time: `lib/realtime` (`useRealtimeEvent`, `useRealtimeRoom`, `useRealtimeStatus`) is a Socket.IO client for
+the backend's real-time layer (`NEXT_PUBLIC_REALTIME_URL`; the backend emits `notification:new` to the user's open
+clients). No page uses it yet, and its ticket route (`/bff/realtime/ticket` → `GET /api/realtime/ticket`) is not
+mounted in the backend yet.
+
+## Offline mode / PWA
 
 - `app/manifest.ts` (`/manifest.webmanifest`): name "CampusLink", start_url `/dashboard`, standalone,
-  theme `#253C6D`, icons 192/512 + maskable in `public/icons/` (`node scripts/generate-icons.mjs` regenerates them).
+  theme `#253C6D`, icons 192/512 + maskable in `public/icons/`, shortcuts to the forum, the notifications, the
+  account and (admins) the users page.
+- Install: `lib/pwa/install.ts` keeps the browser's `beforeinstallprompt` (imported by the root layout's service
+  worker registrar, so it is caught early); the account page offers "Install CampusLink" (iOS: "Add to Home Screen" hint).
+- App icon badge (`lib/pwa/badge.ts`, `components/pwa/app-badge.tsx` in the shell): the unread notifications count,
+  or a dot when only changes wait to sync; the service worker also sets it from a push's `data.unreadCount`.
 - `public/sw.js`, scope `/`, registered in production builds (or `NEXT_PUBLIC_ENABLE_SW=true`) by
   `components/pwa/service-worker-registrar.tsx`; in dev without the flag any old worker is unregistered.
   - precache `/offline` (+ its static files) and the icons; cache-first for `/_next/static/*`, fonts, icons;
   - network-first for navigations (6 s timeout when a copy exists) → cached page → `/offline`; pages reached by
     client-side navigation are saved in the background (`CACHE_PAGE` message, at most every 10 min per URL; these
     requests carry `x-cl-background: 1` and the proxy never refreshes tokens for them);
-  - saved pages (Cache Storage `campuslink-pages-v2`): only `/` (public) and the offline module pages
-    `/dashboard`, `/dashboard/timetable`, `/dashboard/announcements(/<id>)`, `/dashboard/notifications`, never
-    the admin pages or `/dashboard/account`. Each copy carries its owner (`x-cl-owner`, set by `proxy.ts` from the
-    token) and is served only to that account: the `cl_owner` cookie (Cookie Store API), or the IndexedDB owner
-    where that API is missing. Copies older than 24 h or belonging to another account are deleted;
+  - saved pages (Cache Storage `campuslink-pages-v2`): only `/` (public) and `/dashboard`,
+    `/dashboard/notifications`, `/dashboard/forum(/<id>)`, `/dashboard/account` and `/dashboard/admin/users` (the
+    user management module), never the other admin pages. A private page saved in the background also gets its
+    route's static files cached, so a full offline reload starts. Each copy carries its owner (`x-cl-owner`, set by
+    `proxy.ts` from the token) and is served only to that account: the `cl_owner` cookie (Cookie Store API), or the
+    IndexedDB owner where that API is missing. Copies older than 24 h or belonging to another account are deleted;
   - never caches `/bff/*`, `/api/*`, `/auth/*`, the auth pages, Server Actions or non-GET requests;
-  - `push` → notification (`title, body, icon, badge, tag, data.link`), `notificationclick` → focus/open the link,
-    `sync` (`campuslink-outbox`) → replays the outbox.
-- `/offline`: public fallback page with links to the saved timetable/announcements views.
+  - `push` → notification (`title, body, icon, badge, tag, data.link`) + app badge (`data.unreadCount`),
+    `notificationclick` → focus/open the link, `sync` (`campuslink-outbox`) → replays the outbox (same rules as the
+    page: refused `keepRejected` records are kept with `rejected`), `periodicsync` (`campuslink-users-directory`) →
+    saves a fresh copy of the admin's user directory in IndexedDB (403 → copy deleted, sync unregistered).
+- Logout also unregisters the periodic syncs and clears the app badge (`lib/offline/cleanup.ts`).
+- `/offline`: public fallback page with links to the saved home, forum and notifications pages.
 - Connectivity banner (`role="status"`, outside `<main>`): "You're offline. Showing saved data." + "Last updated
   <time>" + "<n> changes waiting to sync".
 - We do not enable `experimental.useOffline`: it would keep failed navigations pending, whereas the service
   worker answers them with the saved page (full offline reloads need the worker anyway).
 - Links: import `Link` from `@/components/ui/app-link` (same props as `next/link`), not from `next/link`. It turns
-  prefetching off while offline (`prefetch={false}`), so the shell, the widgets and the lists do not flood the
-  console with `net::ERR_INTERNET_DISCONNECTED`; prefetching resumes when the connection is back.
+  prefetching off while offline (`prefetch={false}`), so the shell and the lists do not flood the console with
+  `net::ERR_INTERNET_DISCONNECTED`; prefetching resumes when the connection is back.
 - Try it: `npm run build && npm start`, open the app once, then DevTools > Network > Offline and reload.
 
 ## App shell and pages
 
 `app/(back)/dashboard/layout.tsx` → `components/shell/app-shell.tsx`: sidebar (≥ lg) / top bar + bottom
-navigation (phones), `nav` "Main navigation" (Home, Timetable, Announcements, Notifications + unread badge, Account),
-"Administration" group for ADMIN (Users, Academic structure, Timetable management, Announcements management,
-Audit log), "Teaching" group with "Announcements management" for TEACHER. Pages: `/dashboard`,
-`/dashboard/notifications`, `/dashboard/account`, `/dashboard/admin/{users,academic,audit}`, plus the module pages.
+navigation (phones), `nav` "Main navigation" (Home, Notifications + unread badge, Forum, Account) and an
+"Administration" group for ADMIN (Users, Audit log), see `components/shell/nav-items.ts`.
+
+| Page | Who | What |
+| ---- | --- | ---- |
+| `/` | anyone | landing page |
+| `/login`, `/signup`, `/forgot-password`, `/reset-password` | guests | authentication (Server Actions in `app/actions/auth.ts`) |
+| `/dashboard` | signed in | welcome, unread notifications widget, "Your account" |
+| `/dashboard/notifications` | signed in | notifications, "Mark all as read" (offline-capable) |
+| `/dashboard/forum`, `/new`, `/<id>` | signed in | the forum, see below |
+| `/dashboard/account` | signed in | profile (offline-capable), language, two-step verification, password, this device (push, install) |
+| `/dashboard/admin/users` | ADMIN | offline-first user management, see below |
+| `/dashboard/admin/audit` | ADMIN | audit log with an "Action" filter |
+| `/offline` | anyone | offline fallback |
 
 Role guard: `const { user, error } = await requireRole(["ADMIN"])` (`lib/dal.ts`) redirects other roles to
-`/dashboard` (announcements management: `["ADMIN", "TEACHER"]`). `getCurrentUser()` loads the user once per request.
+`/dashboard`. `getCurrentUser()` loads the user once per request (shared by the layout and the page).
 
 - `/dashboard`: "Your account" is a `<dl>` of `<div><dt/><dd/></div>` groups (the icon sits inside the `<dt>`);
   the role's raw value is on its `<dd data-role>`.
 - `/dashboard/admin/audit`: the "Action" column shows a readable label (`admin.audit.actionLabels.<code>`, FR/EN,
   e.g. "User created" / "Utilisateur créé") with the raw code under it; unknown codes are shown as they are. The
-  "Action" filter offers the same labels (option values stay the codes, `?action=user.create`). "Target" keeps the
-  entry's `summary` (else `targetType targetId`).
+  "Action" filter offers the actions the backend records (option values stay the codes, `?action=user.create`).
 
-## Timetable (Module 1)
+## Forum
 
-Files: `app/(back)/dashboard/timetable/`, `app/(back)/dashboard/admin/timetable/`, `components/timetable/`,
-`lib/timetable/`, `messages/{en,fr}/timetable.json`.
+Files: `app/(back)/dashboard/forum/`, `components/forum/`, `lib/forum/`; API: `backend/routes/forumRoutes.js`
+(see the backend README).
 
-- `/dashboard/timetable` (`page.tsx` + `components/timetable/timetable-view.tsx`): STUDENT → the classes of their
-  group, TEACHER → the classes they teach, ADMIN/ALUMNI → a card linking to the management page.
-  - URL state `?view=day|week|month&date=YYYY-MM-DD&subject=<id>&teacher=<id>` (`lib/timetable/range.ts`). Default
-    view: "day" on phones (user-agent guess, corrected by the `(max-width: 639px)` media query), "week" otherwise.
-    Periods and views push a history entry, filters replace it (`setSearch`, no server round trip).
-  - The first period is rendered on the server (`serverSnapshot`); other periods come from `useOfflineQuery`
-    (`/timetable/me?from&to`, one key per period).
-  - Controls: group "View" ("Day" / "Week" / "Month", `aria-pressed`), group "Change period" ("Previous" /
-    "Today" / "Next"), the period as an `h2` (`aria-live="polite"`), selects "Subject" and "Teacher" (options from
-    the loaded period). Month grid: one `button[data-day="YYYY-MM-DD"]` per day (arrow keys move between days).
-  - Each class is an `article[data-session-id][data-status="SCHEDULED|CANCELLED"]` (`session-card.tsx`): subject,
-    "08:30–10:00", room ("Room to be confirmed"), teacher, "Cancelled", "Moved from <room>", "Rescheduled, was
-    <time>". Empty period: "No classes in this period."; student without a group: "You're not assigned to a group
-    yet." (`hint: "NO_GROUP"`).
-  - "Export" menu (`export-menu.tsx`): "Copy calendar link" (`GET /bff/timetable/me/calendar-link`, then the link
-    with "Reset link" + confirmation), "Download .ics" (`/bff/timetable/me/calendar.ics`), "Add to Google Calendar".
-- Dashboard widget `TodayWidget` (`today-widget.tsx`, data rendered on the server, view in `today-widget-view.tsx`):
-  "Today's classes" or "Next class: …", items `[data-session-id][data-status]`, link "See my timetable".
-- `/dashboard/admin/timetable` (ADMIN, `timetable-manager.tsx`): tabs "Group" / "Teacher" / "Room" + select "Show
-  timetable for", week grid, "Add session" dialog (`session-dialog.tsx`, Server Actions in `actions.ts`; conflicts
-  → `role="alert"` with "Conflict"; series: "This session only" / "This and following sessions"), "Import CSV"
-  dialog (`import-dialog.tsx`: "CSV file", "Check file" = dry run, then "Import" and the report).
-- Offline: the page is saved by the service worker and every period opened online stays readable from IndexedDB.
-  A saved copy shown offline (or after a failed refresh) says "Saved copy from <time>."; a period never opened
-  says "This period isn't saved on this device yet.". The export actions that need the server are disabled
-  offline (an already loaded calendar link can still be copied).
+- `/dashboard/forum` (`feed.tsx`): search, filters by type (Carpool, Lost & found, Experience, Idea) and status
+  (Active, Closed, Resolved), pages of 8 with "Load more". Each post is a `PostCard` (`post-card.tsx`): author,
+  type and status badges, trip or item details (`post-media.tsx`), tags, likes, views and the comments thread
+  (`comments-thread.tsx`).
+- `/dashboard/forum/new` (`post-form.tsx`): type, then its details (trip: from, to, date, seats, price or free;
+  item: lost or found, what, where, when), title, description, location and up to 5 tags, checked in the browser
+  before `POST /bff/posts`.
+- `/dashboard/forum/<id>` (`post-detail.tsx`): the post, its comments and their replies, likes/comments/views.
+- Permissions: every signed-in user reads and posts. Closing, reopening, resolving and deleting a post, and deleting
+  a comment, belong to its author and to ADMINs: the pages get the signed-in user from the server (`viewer`,
+  `canManage()` in `lib/forum/format.ts`) and only show those actions to them; the API checks again (403
+  `FORBIDDEN`).
+- Calls go from the browser through the BFF (`lib/forum/bff.ts`, errors read from the API's `{ error, code }`);
+  the forum does not use the offline data layer, but the service worker saves its pages.
 
-## Announcements (Module 7)
+## User management (offline-first)
 
-Files: `app/(back)/dashboard/announcements/`, `app/(back)/dashboard/admin/announcements/`,
-`components/announcements/`, `lib/announcements/`, `messages/{en,fr}/announcements.json`.
+Files: `app/(back)/dashboard/admin/users/` (`page.tsx`, `users-manager.tsx`, `user-dialog.tsx`),
+`app/(back)/dashboard/account/` (`account-view.tsx`, `device-settings.tsx`, `actions.ts`), `lib/users/`
+(`directory.ts`: pure functions, `mutations.ts`), `lib/pwa/`; API: `/api/users`, `/api/users/directory`,
+`/api/push`, `/api/notifications` (backend README).
 
-- `/dashboard/announcements` (`feed-view.tsx`): h1 "Announcements", checkbox "Unread only" (remounts the list in
-  that mode), pages of 20 with "Load more", unread summary ("3 unread announcements"). Each item is an
-  `article[data-announcement-id][data-unread="true|false"]` (`announcement-card.tsx`) whose title links to the detail
-  page (the whole card is clickable), with the priority badge `[data-priority]` ("Urgent", "High", "Normal",
-  "Low"), "New" when unread, author, date and files count.
-- `/dashboard/announcements/[id]` (`announcement-view.tsx`): h1 = title, body `[data-testid="announcement-body"]`
-  (plain text, line breaks kept, never HTML), attachments as download links `/bff/announcements/<id>/attachments/<aid>`
-  (the filename). Opening it marks it as read (`POST /announcements/:id/read` through `queueMutation`, queued
-  offline). Unknown or not visible → "not found" state. Authors and admins also see the reads and "View stats".
-- Dashboard widget `LatestWidget` (`latest-widget.tsx` + `latest-card.tsx`): the 4 latest, "<n> new", "See all
-  announcements"; managers also get "Write an announcement".
-- `/dashboard/admin/announcements` (ADMIN, TEACHER, `management-view.tsx`): "New announcement", rows
-  `tr[data-announcement-id]` with "Title", "Status" (`[data-status]` badge), "Recipients", "Read rate", "Actions"
-  (`manage-actions.tsx`: "Edit", "Publish now" and "Delete", the last two with a confirmation);
-  `?done=draft|published|scheduled|updated` shows
-  the outcome of the last action.
-- `/new` and `/[id]/edit` (`announcement-form.tsx`, Server Action `saveAnnouncementAction`): "Title", "Message",
-  "Priority", fieldset "Audience" ("Roles", "Programs", "Levels", "Groups") with the live count
-  `[data-testid="audience-recipients"]` ("<n> recipients"), file input "Attachments" (5 files of 10 MB, checked in
-  the browser first; sent through the Server Action, see "Security"), checkbox "Publish later" + "Publish at",
-  buttons "Save draft", "Publish now", "Schedule" ("Save changes" once published). `/[id]`: stats with "Read rate"
-  and the reads per day (`reads-chart.tsx`).
-- Offline (`lib/announcements/offline.ts`, `read-state.ts`, `components/announcements/offline-reader.tsx`):
-  - feed pages, details and the widget list are `useOfflineQuery` entries (`announcements:feed:<mode>:<page>`,
-    `announcements:detail:<id>`, `announcements:latest`); "Unread only" never loaded on this device filters the
-    saved full list instead;
-  - while the feed is shown online, the service worker saves the detail pages of the 10 newest announcements (and
-    the static files their route needs);
-  - offline, a click opens the saved page with a full page load (answered by the service worker) or, when that
-    page was never saved, the saved announcement in a dialog ("You're offline: this is the copy saved on this
-    device."), and marks it as read (queued: "1 change waiting to sync");
-  - reads made on this device update the saved lists at once (`useLocalReads`), so "New" badges and counts stay
-    right offline; a push about an announcement refreshes the lists while the app is open.
+**Users page (ADMIN).** The whole directory (`GET /bff/users/directory`, every account, at most 5000) is rendered
+on the server for the first paint, then kept on the device by `useOfflineQuery(["users", "directory"])` with the
+groups (`["academic", "groups"]`). Search (accent-insensitive), role filter, role counts, paging (20) and the CSV
+export all run on that copy, so they work the same online and offline; the filters live in the URL
+(`?q=&role=&page=`, `history.replaceState`, no server round trip).
+
+- Changes go through the outbox (`lib/users/mutations.ts`), sent at once when online, kept on the device when
+  offline: create (`POST /users`, key `POST /users#local-<uuid>`: several can wait), edit (`PATCH /users/:id` with
+  the whole form, so a later edit replaces a waiting one), delete (`DELETE /users/:id`; it also drops a waiting
+  edit of that user). Editing an account created offline rewrites its waiting creation (keeping its password);
+  deleting one just drops it.
+- What the admin sees is the saved directory with the waiting changes applied on top (`applyChanges()`): rows
+  `tr[data-user-id][data-state="synced|pending|rejected"][data-change="create|update|delete"]` with "Waiting to
+  sync" / "Change waiting to sync" / "Will be deleted" (struck through) and "Undo". The cached directory itself is
+  never modified, so a refetch can't hide a waiting change.
+- Refused on replay (4xx, e.g. `EMAIL_TAKEN`): the change stays (`keepRejected`) and shows in "<n> changes couldn't
+  be applied" with the reason and Edit (form pre-filled with the refused values) / Retry / Discard; the row gets
+  "Not applied".
+- Status line `[data-testid="users-offline-status"]`: "<n> accounts saved on this device · updated <time>" (+ the
+  offline explanation) and the Periodic Background Sync state ("Refreshed in the background" when the installed app
+  got the permission, refreshed every 12 h by the service worker).
+- "Export CSV" (UTF-8 with BOM, formula-safe cells) of the filtered rows, built on the device; "Share" (Web Share
+  API with files) where supported.
+- Privacy: an admin's device keeps the directory (names, emails, roles, groups) and, until it syncs, the initial
+  password of an account created offline. Everything is scoped to the account and wiped at logout or when the
+  session ends (see "How authentication works").
+
+**Account page.** Profile changes go through the outbox (`PATCH /users/me`, key `PATCH /users/me#profile`, scope
+`account`): offline they wait on the device, the form shows them with "Change waiting to sync", and the page is
+rendered again once they are sent (by the page or by Background Sync). Two-step verification, password and
+language need the server: disabled offline with "Needs a connection." "This device": push notifications switch,
+"Install CampusLink", what stays available offline.
+
+**Notifications** (backend, type `ACCOUNT`, in-app + push): the user when an admin changes their role, group or
+password (sent before the sessions and push subscriptions are revoked); every admin on a public sign-up (link
+`/dashboard/admin/users?q=<email>`).
 
 ## Security
 
 - Headers (`next.config.ts`): `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`,
-  `X-Content-Type-Options: nosniff`, `Permissions-Policy` (camera, microphone, geolocation off) on every answer;
-  in production builds also `Strict-Transport-Security: max-age=63072000; includeSubDomains` (browsers ignore it on
-  plain-http answers such as local test runs). `/sw.js` has its own policy (`default-src 'self'; script-src 'self'`).
+  `X-Content-Type-Options: nosniff`, `Permissions-Policy` (camera and microphone off, geolocation for this origin
+  only) on every answer; in production builds also `Strict-Transport-Security: max-age=63072000; includeSubDomains`
+  (browsers ignore it on plain-http answers such as local test runs). `/sw.js` has its own policy
+  (`default-src 'self'; script-src 'self'`).
 - Content-Security-Policy of the pages (`lib/csp.ts`), set by `proxy.ts` with a new nonce for every request. The
   policy is also put on the forwarded request: Next.js reads the nonce there and adds it to its scripts, its
   stylesheet links and its inline styles. Production policy:
@@ -303,8 +352,8 @@ Files: `app/(back)/dashboard/announcements/`, `app/(back)/dashboard/admin/announ
   ```
   default-src 'self'; script-src 'self' 'nonce-…' 'strict-dynamic'; style-src 'self' 'unsafe-inline';
   style-src-elem 'self' 'nonce-…'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self';
-  connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self';
-  form-action 'self'; frame-ancestors 'none'
+  connect-src 'self' <realtime origin> <its ws(s) origin>; worker-src 'self'; manifest-src 'self'; object-src 'none';
+  base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   ```
 
   - Scripts: only those carrying the nonce, and what they load (`'strict-dynamic'`). No inline `<script>` or
@@ -312,11 +361,10 @@ Files: `app/(back)/dashboard/announcements/`, `app/(back)/dashboard/admin/announ
     and put it on the tag.
   - Styles: `<style>`/`<link>` elements need the nonce or this origin. Radix dialogs, sheets and menus add a
     `<style>` element while open (react-remove-scroll): `components/security/style-nonce.tsx` (root layout) hands
-    the page nonce to `get-nonce`. `style="…"` attributes stay allowed (React renders some on the server: subject
-    colours, progress bars, charts). `style-src` is the fallback of browsers without `style-src-elem/-attr`.
+    the page nonce to `get-nonce`. `style="…"` attributes stay allowed. `style-src` is the fallback of browsers
+    without `style-src-elem/-attr`.
   - `next dev` adds `'unsafe-eval'` (React debugging), allows inline styles (Turbopack injects `<style>` tags) and
-    local WebSockets (`ws://localhost:*`, `ws://127.0.0.1:*`: dev tools beside the dev server, e.g. React DevTools
-    or the Console Ninja editor extension, which injects a log forwarder into `next dev` pages).
+    local WebSockets (`ws://localhost:*`, `ws://127.0.0.1:*`).
   - Nonces need dynamic rendering: every page is (the root layout reads the locale cookie). A statically
     prerendered page (`○` in the build output) would have no nonce and its scripts would be blocked.
   - The matcher of `proxy.ts` covers every page (all paths except `/_next/static`, `/_next/image`, `/bff/`,
@@ -326,38 +374,28 @@ Files: `app/(back)/dashboard/announcements/`, `app/(back)/dashboard/admin/announ
     they still start offline.
 - Request bodies: the BFF refuses non-GET requests without a session cookie (401) and bodies over 5 ×
   `MAX_UPLOAD_MB` + 1 MB (413) before reading them (see "BFF"). Server Actions: `serverActions.bodySizeLimit` and
-  `proxyClientMaxBodySize` use the same limit (`"51mb"` by default), the smallest that fits the largest real
-  action: the announcement composer uploads its 5 attachments of 10 MB through `saveAnnouncementAction`. Server
-  Action POSTs of `/dashboard` pages go through `proxy.ts` (token refresh), which only buffers
-  `proxyClientMaxBodySize` bytes (10 MB by default: larger uploads reached the action truncated, "Unexpected end of
-  form").
+  `proxyClientMaxBodySize` use the same limit (`"51mb"` by default). Server Action POSTs of `/dashboard` pages go
+  through `proxy.ts` (token refresh), which only buffers `proxyClientMaxBodySize` bytes (10 MB by default: larger
+  uploads would reach the action truncated, "Unexpected end of form").
 
-## Quality (Lighthouse)
+## Conventions
 
-Reports and scores: `docs/quality/` (mobile, simulated slow 4G, `next start`). Accessibility, Best Practices and
-SEO are at 100 on `/login`, `/dashboard`, `/dashboard/timetable` and `/dashboard/announcements`; first contentful
-paint is about 0.9 s. Authenticated pages must be audited with the session in the browser's cookie jar (not
-`--extra-headers`), otherwise the link prefetches are redirected to `/login` and distort the results.
-
-## Conventions for module work (timetable, announcements)
-
-- Ownership (docs/phase1-contract.md §12): module folders only; ask for changes elsewhere.
-- Messages: `messages/{en,fr}/timetable.json` / `announcements.json` (same keys in both files).
-- Dashboard widgets: keep `export function TodayWidget({ user }: { user: User })` in
-  `components/timetable/today-widget.tsx` and `LatestWidget` in `components/announcements/latest-widget.tsx`.
 - UI primitives (`components/ui/`, token-based, dark-mode ready, accessible):
   `Button` (`asChild`), `Badge` (pill: default/secondary/neutral/highlight/success/warning/danger/outline),
   `Card*`, `Dialog*`, `ConfirmDialog` (alert-dialog.tsx), `DropdownMenu*`, `Popover*`, `Tooltip`, `Tabs*`,
   `Table*`, `Select` (native `<select>`, also `multiple`), `Checkbox`/`CheckboxField` (native), `RadioGroup`
-  (native radios in a fieldset), `Switch`, `Input`, `Textarea`, `Label`, `Field` (label + hint + error wiring),
-  `InlineFeedback` + `useFeedback()` + `fromActionState()`, `EmptyState`, `Skeleton`/`SkeletonList`,
-  `PageHeader` (the page's h1), `Pagination` (server), `Sheet`. Icons: `lucide-react` (line icons).
+  (native radios in a fieldset), `Switch`, `Input`, `Textarea`, `Label`, `Field` (label + hint + error wiring, render
+  prop: `{(props) => <Input {...props} />}`), `InlineFeedback` + `useFeedback()` + `fromActionState()`,
+  `EmptyState`, `Skeleton`/`SkeletonList`, `PageHeader` (the page's h1), `Pagination` (server), `Sheet`. Icons:
+  `lucide-react` (line icons). File names are lower case (`field.tsx`, `button.tsx`): imports are case-sensitive on
+  Linux (Vercel) and in Turbopack, even on Windows.
+- Messages: same keys in `messages/en/*.json` and `messages/fr/*.json`.
 - Time: `lib/datetime.ts` (`dateKey`, `timeKey`, `todayKey`, `zonedTimeToUtc("2026-10-08", "08:30")`,
   `addDays`, `startOfWeek` (Monday), `startOfMonth`, `formatTimeRange` → "08:30–10:00"), all in the campus timezone.
 - Feedback: at most one `role="status"` and one `role="alert"` inside `<main>` at a time (tests look them up there).
   Dialogs are portals (outside `<main>`): report the outcome of a dialog action in the page.
 
-## Notes for E2E tests
+## Notes for end-to-end tests
 
 - Next.js adds a hidden route announcer with `role="alert"`; scope alert lookups to the page,
   e.g. `page.getByRole('main').getByRole('alert')`. The connectivity banner (`role="status"`) is outside `<main>`.
@@ -368,27 +406,9 @@ paint is about 0.9 s. Authenticated pages must be audited with the session in th
   `/dashboard/account`, so the page's "Language" select is the only one there.
 - French UI in a test: set the `NEXT_LOCALE=fr` cookie or use a `fr-FR` browser locale (login keeps the browser's
   language, so accounts created by the API with the default `locale: "fr"` still see English in Chromium en-US).
-- Offline tests (`E2E_NEXT_MODE=start`): a saved page is only served while the `cl_owner` cookie exists, so a test
-  that injects `cl_access`/`cl_refresh` itself must open a dashboard page online first (the proxy then sets
-  `cl_owner`). App links (`@/components/ui/app-link`) do not prefetch while offline, but a prefetch already in
-  flight when the network drops can still fail with `net::ERR_INTERNET_DISCONNECTED`: keep filtering that message
-  in offline tests (see `tests/e2e/offline-privacy.spec.ts`). After a session ends, `Clear-Site-Data` also
-  unregisters the service worker; the next route change registers it again.
+- Offline tests (`next start`): a saved page is only served while the `cl_owner` cookie exists, so a test that
+  injects `cl_access`/`cl_refresh` itself must open a dashboard page online first (the proxy then sets
+  `cl_owner`). After a session ends, `Clear-Site-Data` also unregisters the service worker; the next route change
+  registers it again.
 - A CSP violation is logged as a console error ("Refused to …" / "violates the following Content Security Policy
-  directive"), so the browser guard of the suite also catches them.
-
-## Phase 2 modules
-
-Each phase 2 module documents itself (see also docs/phase2-contract.md):
-
-- [Bookings (module 5)](docs/bookings.md)
-- [Forum (module 4)](docs/forum.md)
-- [Attendance, grades and analytics (module 9)](docs/analytics.md)
-
-## Phase 3 modules
-
-See also docs/phase3-contract.md:
-
-- [Carpooling and the real-time layer (module 2)](docs/carpool.md)
-- [Notes marketplace (module 3)](docs/marketplace.md)
-- [Alumni network (module 6)](docs/alumni.md)
+  directive").

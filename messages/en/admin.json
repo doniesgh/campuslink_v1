@@ -39,7 +39,56 @@
     "updated": "{name} has been updated.",
     "deleted": "{name} has been deleted.",
     "empty": "No users match these filters.",
-    "you": "you"
+    "you": "you",
+    "offline": {
+      "saved": "{count, plural, one {# account} other {# accounts}} saved on this device",
+      "updated": "updated {time}",
+      "offline": "You're offline: this is the copy saved on this device. Your changes are kept here and sent when you're back online.",
+      "notSaved": "The user list isn't saved on this device yet. Open this page once while online.",
+      "truncated": "Only the first {count} accounts are saved on this device.",
+      "backgroundOn": "Refreshed in the background",
+      "backgroundOff": "Background refresh needs the installed app"
+    },
+    "stats": "Accounts by role",
+    "state": {
+      "pendingCreate": "Waiting to sync",
+      "pendingUpdate": "Change waiting to sync",
+      "pendingDelete": "Will be deleted",
+      "rejected": "Not applied"
+    },
+    "undo": "Undo",
+    "retry": "Retry",
+    "discard": "Discard",
+    "queued": {
+      "create": "{name} is saved on this device and will be added when you're back online.",
+      "update": "The change to {name} is saved on this device and will be sent when you're back online.",
+      "delete": "{name} will be deleted when you're back online."
+    },
+    "dropped": "{name} was never sent: it has been removed from this device.",
+    "undone": "Change cancelled.",
+    "discarded": "Change discarded.",
+    "issues": {
+      "title": "{count, plural, one {# change couldn't be applied} other {# changes couldn't be applied}}",
+      "description": "The server refused these changes made on this device. Edit the account and save again, retry, or discard the change.",
+      "create": "Add {name}",
+      "update": "Edit {name}",
+      "delete": "Delete {name}"
+    },
+    "synced": "{count, plural, one {# change sent} other {# changes sent}} to the server.",
+    "export": "Export CSV",
+    "share": "Share",
+    "exported": "{count, plural, one {# account exported} other {# accounts exported}}.",
+    "csv": {
+      "lastname": "Last name",
+      "firstname": "First name",
+      "email": "Email",
+      "role": "Role",
+      "group": "Group",
+      "createdAt": "Created"
+    },
+    "previous": "Previous",
+    "next": "Next",
+    "pending": "Waiting"
   },
   "academic": {
     "metaTitle": "Academic structure",

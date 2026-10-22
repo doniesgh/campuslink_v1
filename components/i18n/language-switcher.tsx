@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { setLocaleAction } from "@/app/actions/locale";
 import { Select } from "@/components/ui/select";
 import { LOCALES } from "@/i18n/config";
+import { useOnlineStatus } from "@/lib/offline/status";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,6 +31,8 @@ export function LanguageSwitcher({
   const id = useId();
   const [optimisticLocale, setOptimisticLocale] = useOptimistic<string>(locale);
   const [pending, startTransition] = useTransition();
+  // The page is rendered again by the server in the new language: offline, that can't happen.
+  const online = useOnlineStatus();
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -40,6 +43,7 @@ export function LanguageSwitcher({
       <Select
         id={id}
         value={optimisticLocale}
+        disabled={!online}
         aria-busy={pending || undefined}
         onChange={(event) => {
           const next = event.target.value;

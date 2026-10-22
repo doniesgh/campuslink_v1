@@ -34,7 +34,7 @@
   },
   "push": {
     "title": "Notifications",
-    "description": "Get timetable changes and announcements on this device, even when CampusLink is closed.",
+    "description": "Get account changes and CampusLink news on this device, even when the app is closed.",
     "enable": "Enable push notifications",
     "disable": "Disable push notifications",
     "enabled": "Push notifications are on for this device.",
@@ -44,5 +44,22 @@
     "noServiceWorker": "Push notifications need the installed app. Open CampusLink from a production build, then try again.",
     "denied": "Notifications are blocked for CampusLink. Allow them in your browser settings, then try again.",
     "failed": "We couldn't change push notifications. Please try again."
+  },
+  "offline": {
+    "queued": "Saved on this device. Your profile will be updated when you're back online.",
+    "pending": "Change waiting to sync.",
+    "rejected": "Your last profile change couldn't be applied: {reason}",
+    "needsConnection": "Needs a connection.",
+    "discard": "Discard"
+  },
+  "device": {
+    "title": "This device",
+    "description": "Install CampusLink, get notifications and use your account offline.",
+    "install": "Install CampusLink",
+    "installDescription": "Open it from your home screen or desktop like any app, even offline.",
+    "installed": "CampusLink is installed on this device.",
+    "installIos": "On iPhone or iPad: tap Share, then “Add to Home Screen”.",
+    "installMenu": "Your browser can also install CampusLink from its menu (“Install app”).",
+    "offline": "This page and your profile stay readable offline on this device for 24 hours. Profile changes made offline are sent when you're back online."
   }
 }

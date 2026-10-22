@@ -1,86 +1,70 @@
-const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
+const { assertObjectId, isBlank, notFound, parsePagination, validationError } = require('../utils/validation');
+const { assertCanManage } = require('./postController');
 
-const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
+const AUTHOR_FIELDS = 'firstname lastname';
 
-// POST /api/posts/:postId/comments  { content, parent? }
-exports.addComment = async (req, res) => {
-  try {
-    const { postId } = req.params;
-    const { content, parent } = req.body;
-
-    if (!isValidId(postId)) return res.status(400).json({ message: 'ID invalide' });
-    if (!content || !content.trim()) return res.status(400).json({ message: 'Contenu obligatoire' });
-
-    const post = await Post.findById(postId);
-    if (!post) return res.status(404).json({ message: 'Annonce introuvable' });
-
-    if (parent) {
-      const parentComment = await Comment.findOne({ _id: parent, post: postId });
-      if (!parentComment) return res.status(404).json({ message: 'Commentaire parent introuvable' });
-    }
-
-    const comment = await Comment.create({
-      post: postId,
-      author: req.user._id,
-      content,
-      parent: parent || null,
-    });
-    await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
-
-    await comment.populate('author', 'name avatar');
-    res.status(201).json(comment);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
-  }
+const assertPostExists = async (id) => {
+  assertObjectId(id);
+  if (!(await Post.exists({ _id: id }))) throw notFound('Post');
 };
 
-// GET /api/posts/:postId/comments?page=&limit=
-exports.getComments = async (req, res) => {
-  try {
-    const { postId } = req.params;
-    if (!isValidId(postId)) return res.status(400).json({ message: 'ID invalide' });
+// POST /api/posts/:id/comments { content, parent? } → 201 comment (author populated).
+// Replies are one level deep: `parent` must be a top-level comment of the same post.
+const addComment = async (req, res) => {
+  const { content, parent } = req.body ?? {};
+  await assertPostExists(req.params.id);
+  if (isBlank(content) || typeof content !== 'string') throw validationError({ content: 'content is required' });
 
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-
-    const [comments, total] = await Promise.all([
-      Comment.find({ post: postId })
-        .populate('author', 'name avatar')
-        .sort({ createdAt: 1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-      Comment.countDocuments({ post: postId }),
-    ]);
-
-    res.json({ comments, page, pages: Math.ceil(total / limit), total });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
+  if (parent) {
+    assertObjectId(parent);
+    const parentComment = await Comment.findOne({ _id: parent, post: req.params.id, parent: null });
+    if (!parentComment) throw notFound('Parent comment');
   }
+
+  const comment = await Comment.create({
+    post: req.params.id,
+    author: req.user._id,
+    content,
+    parent: parent || null,
+  });
+  await Post.updateOne({ _id: req.params.id }, { $inc: { commentsCount: 1 } });
+
+  const saved = await Comment.findById(comment._id).select('-__v').populate('author', AUTHOR_FIELDS).lean();
+  res.status(201).json(saved);
 };
 
-// DELETE /api/comments/:id  (auteur ou admin)
-exports.deleteComment = async (req, res) => {
-  try {
-    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'ID invalide' });
+// GET /api/posts/:id/comments?page=&limit= → { comments, page, pages, total }, oldest first.
+const getComments = async (req, res) => {
+  await assertPostExists(req.params.id);
+  const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 20, maxLimit: 100 });
 
-    const comment = await Comment.findById(req.params.id);
-    if (!comment) return res.status(404).json({ message: 'Commentaire introuvable' });
+  const [comments, total] = await Promise.all([
+    Comment.find({ post: req.params.id })
+      .select('-__v')
+      .populate('author', AUTHOR_FIELDS)
+      .sort({ createdAt: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Comment.countDocuments({ post: req.params.id }),
+  ]);
 
-    if (!comment.author.equals(req.user._id) && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Action non autorisée' });
-    }
-
-    // Supprime aussi les réponses directes
-    const { deletedCount } = await Comment.deleteMany({
-      $or: [{ _id: comment._id }, { parent: comment._id }],
-    });
-    await Post.findByIdAndUpdate(comment.post, { $inc: { commentsCount: -deletedCount } });
-
-    res.json({ message: 'Commentaire supprimé' });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
-  }
+  res.status(200).json({ comments, page, pages: Math.ceil(total / limit), total });
 };
+
+// DELETE /api/comments/:id (author or admin): the comment and its replies → 204
+const deleteComment = async (req, res) => {
+  assertObjectId(req.params.id);
+  const comment = await Comment.findById(req.params.id);
+  if (!comment) throw notFound('Comment');
+  assertCanManage(req.user, comment);
+
+  const { deletedCount } = await Comment.deleteMany({ $or: [{ _id: comment._id }, { parent: comment._id }] });
+  await Post.updateOne({ _id: comment.post }, { $inc: { commentsCount: -deletedCount } });
+
+  res.status(204).end();
+};
+
+module.exports = { addComment, getComments, deleteComment };

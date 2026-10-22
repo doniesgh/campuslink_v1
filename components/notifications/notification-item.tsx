@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/components/ui/app-link";
-import { Bell, CalendarClock, Megaphone } from "lucide-react";
+import { Bell, CalendarClock, Megaphone, UserCog } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { safeNextPath } from "@/lib/safe-next";
@@ -12,6 +12,7 @@ const TYPE_ICONS: Record<NotificationType, typeof Bell> = {
   TIMETABLE_CHANGE: CalendarClock,
   ANNOUNCEMENT: Megaphone,
   SYSTEM: Bell,
+  ACCOUNT: UserCog,
 };
 
 /** One notification: links to its `link` (relative paths only); unread ones get a "New" pill. */

@@ -1,22 +1,27 @@
 "use client";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { CloudOff, CloudUpload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { LanguageSwitcher } from "@/components/i18n/language-switcher";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field } from "@/components/ui/Field";
+import { Field } from "@/components/ui/field";
 import { InlineFeedback, type Feedback } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { PasswordInput } from "@/components/auth/password-input";
-import { useValidationMessages } from "@/lib/i18n/client";
+import { useErrorFormatter, useValidationMessages } from "@/lib/i18n/client";
+import { queueMutation, removeOutboxRecord, useOnlineStatus, useOutbox } from "@/lib/offline";
 import { resyncPushSubscription } from "@/lib/offline/push";
 import type { ActionState } from "@/lib/server-api";
 import type { Role } from "@/lib/types";
 import { formText, hasErrors, summarize, validateChangePassword, validateProfile } from "@/lib/validation";
-import { changePasswordAction, setTwoFactorAction, updateProfileAction } from "./actions";
+import { changePasswordAction, setTwoFactorAction } from "./actions";
+import { DeviceSettings } from "./device-settings";
 
-type Section = "profile" | "language" | "security" | "password";
+type Section = "profile" | "language" | "security" | "password" | "device";
 type SectionFeedback = (Feedback & { section: Section }) | null;
 
 export type AccountUser = {
@@ -28,13 +33,30 @@ export type AccountUser = {
   group: string | null;
 };
 
+/** Outbox scope and key of the profile change ("last write wins": one waiting profile change at most). */
+const ACCOUNT_SCOPE = "account";
+const PROFILE_KEY = "PATCH /users/me#profile";
+
 const initialState: ActionState = {};
 
-/** Account page: Profile, Language, Security (2FA + password), Notifications (push). */
+function NeedsConnection() {
+  const t = useTranslations("account.offline");
+  return (
+    <p className="flex items-center gap-2 text-sm text-muted-foreground">
+      <CloudOff className="h-4 w-4" aria-hidden="true" />
+      {t("needsConnection")}
+    </p>
+  );
+}
+
+/** Account page: Profile (works offline), Language, Security (2FA + password), This device (push, install, offline). */
 export function AccountView({ user, vapidPublicKey }: { user: AccountUser; vapidPublicKey: string | null }) {
   const t = useTranslations("account");
   const tRoles = useTranslations("common.roles");
   const translate = useValidationMessages();
+  const errors = useErrorFormatter();
+  const router = useRouter();
+  const online = useOnlineStatus();
 
   // One message at a time on the page (status or alert), shown in the section it belongs to.
   const [feedback, setFeedbackState] = useState<SectionFeedback>(null);
@@ -45,26 +67,59 @@ export function AccountView({ user, vapidPublicKey }: { user: AccountUser; vapid
   };
   const feedbackFor = (section: Section) => (feedback?.section === section ? feedback : null);
 
-  // --- Profile ---
+  // --- Profile: PATCH /users/me through the outbox (queued offline, sent when back online) ---
+  const records = useOutbox(ACCOUNT_SCOPE);
+  const waiting = records.find((record) => record.id.endsWith(`|${PROFILE_KEY}`));
+  const waitingValues = waiting?.body as { firstname?: string; lastname?: string } | undefined;
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
-  const [, profileAction, profilePending] = useActionState(async (prev: ActionState, formData: FormData) => {
-    const result = await updateProfileAction(prev, formData);
-    setProfileErrors(result.fieldErrors ?? {});
-    show("profile", result.message ? { type: result.ok ? "success" : "error", message: result.message } : null);
-    return result;
-  }, initialState);
+  const [profilePending, setProfilePending] = useState(false);
 
-  const validateProfileForm = (event: React.SubmitEvent<HTMLFormElement>) => {
+  // Once the waiting change is gone (sent by this page or by the service worker's Background Sync, or discarded),
+  // render the page again with the server's values.
+  const waitingId = waiting?.id ?? null;
+  const previousWaiting = useRef<string | null>(null);
+  useEffect(() => {
+    if (previousWaiting.current && !waitingId) router.refresh();
+    previousWaiting.current = waitingId;
+  }, [waitingId, router]);
+
+  const submitProfile = async (event: React.SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const errors = translate(validateProfile({ firstname: formText(data, "firstname").trim(), lastname: formText(data, "lastname").trim() }));
-    if (hasErrors(errors)) {
-      event.preventDefault();
-      setProfileErrors(errors);
-      show("profile", { type: "error", message: summarize(errors) });
+    const values = { firstname: formText(data, "firstname").trim(), lastname: formText(data, "lastname").trim() };
+    const invalid = translate(validateProfile(values));
+    if (hasErrors(invalid)) {
+      setProfileErrors(invalid);
+      show("profile", { type: "error", message: summarize(invalid) });
+      return;
+    }
+
+    setProfilePending(true);
+    const result = await queueMutation({
+      method: "PATCH",
+      path: "/users/me",
+      body: values,
+      key: PROFILE_KEY,
+      scope: ACCOUNT_SCOPE,
+      info: { kind: "profile" },
+      keepRejected: true,
+    });
+    setProfilePending(false);
+    if (result.status === "failed") {
+      setProfileErrors(errors.fieldErrors(result.error));
+      show("profile", { type: "error", message: errors.message(result.error) });
+      return;
+    }
+    setProfileErrors({});
+    if (result.status === "sent") {
+      show("profile", { type: "success", message: t("profile.saved") });
+      router.refresh();
+    } else {
+      show("profile", { type: "info", message: t("offline.queued") });
     }
   };
 
-  // --- Two-step verification ---
+  // --- Two-step verification (needs the server: never queued) ---
   const [twoFactor, setTwoFactor] = useState(user.twoFactorEnabled);
   const [twoFactorPending, startTwoFactor] = useTransition();
   const toggleTwoFactor = (enabled: boolean) => {
@@ -78,7 +133,7 @@ export function AccountView({ user, vapidPublicKey }: { user: AccountUser; vapid
     });
   };
 
-  // --- Password ---
+  // --- Password (needs the server: never queued, never stored on the device) ---
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
   const [passwordFormKey, setPasswordFormKey] = useState(0);
   const [, passwordAction, passwordPending] = useActionState(async (prev: ActionState, formData: FormData) => {
@@ -96,17 +151,17 @@ export function AccountView({ user, vapidPublicKey }: { user: AccountUser; vapid
 
   const validatePasswordForm = (event: React.SubmitEvent<HTMLFormElement>) => {
     const data = new FormData(event.currentTarget);
-    const errors = translate(
+    const invalid = translate(
       validateChangePassword({
         currentPassword: formText(data, "currentPassword"),
         newPassword: formText(data, "newPassword"),
         confirmPassword: formText(data, "confirmPassword"),
       })
     );
-    if (hasErrors(errors)) {
+    if (hasErrors(invalid)) {
       event.preventDefault();
-      setPasswordErrors(errors);
-      show("password", { type: "error", message: summarize(errors) });
+      setPasswordErrors(invalid);
+      show("password", { type: "error", message: summarize(invalid) });
     }
   };
 
@@ -121,15 +176,30 @@ export function AccountView({ user, vapidPublicKey }: { user: AccountUser; vapid
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={profileAction} onSubmit={validateProfileForm} className="space-y-5" noValidate>
+          {/* Re-mounted when a waiting change appears or goes: the fields show the values that will be saved. */}
+          <form key={waiting?.createdAt ?? "saved"} onSubmit={submitProfile} className="space-y-5" noValidate>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field id="profile-firstname" label={t("profile.firstname")} error={profileErrors.firstname}>
-                {(props) => <Input {...props} name="firstname" autoComplete="given-name" defaultValue={user.firstname} required />}
+                {(props) => <Input {...props} name="firstname" autoComplete="given-name" defaultValue={waitingValues?.firstname ?? user.firstname} required />}
               </Field>
               <Field id="profile-lastname" label={t("profile.lastname")} error={profileErrors.lastname}>
-                {(props) => <Input {...props} name="lastname" autoComplete="family-name" defaultValue={user.lastname} required />}
+                {(props) => <Input {...props} name="lastname" autoComplete="family-name" defaultValue={waitingValues?.lastname ?? user.lastname} required />}
               </Field>
             </div>
+            {waiting && !waiting.rejected && (
+              <p data-testid="profile-waiting" className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CloudUpload className="h-4 w-4 text-highlight" aria-hidden="true" />
+                {t("offline.pending")}
+              </p>
+            )}
+            {waiting?.rejected && (
+              <div className="flex flex-wrap items-center gap-2 text-sm text-destructive">
+                <span>{t("offline.rejected", { reason: errors.message(waiting.rejected) })}</span>
+                <Button type="button" variant="ghost" size="sm" className="rounded-full" onClick={() => void removeOutboxRecord(waiting.id)}>
+                  {t("offline.discard")}
+                </Button>
+              </div>
+            )}
             <InlineFeedback feedback={feedbackFor("profile")} />
             <SubmitButton pending={profilePending} className="h-10 w-auto rounded-full px-6 shadow-none">
               {t("profile.save")}
@@ -152,6 +222,7 @@ export function AccountView({ user, vapidPublicKey }: { user: AccountUser; vapid
               setLanguageSaved(true);
             }}
           />
+          {!online && <NeedsConnection />}
           {/* Computed at render time so it shows in the newly selected language. */}
           <InlineFeedback feedback={languageSaved ? { type: "success", message: t("language.saved") } : null} />
         </CardContent>
@@ -176,10 +247,11 @@ export function AccountView({ user, vapidPublicKey }: { user: AccountUser; vapid
                 id="two-factor"
                 checked={twoFactor}
                 onCheckedChange={toggleTwoFactor}
-                disabled={twoFactorPending}
+                disabled={twoFactorPending || !online}
                 aria-describedby="two-factor-description"
               />
             </div>
+            {!online && <NeedsConnection />}
             <InlineFeedback feedback={feedbackFor("security")} />
           </div>
 
@@ -203,14 +275,16 @@ export function AccountView({ user, vapidPublicKey }: { user: AccountUser; vapid
               </Field>
             </div>
             <InlineFeedback feedback={feedbackFor("password")} />
-            <SubmitButton pending={passwordPending} className="h-10 w-auto rounded-full px-6 shadow-none">
+            {!online && <NeedsConnection />}
+            <SubmitButton pending={passwordPending} disabled={!online} className="h-10 w-auto rounded-full px-6 shadow-none">
               {t("security.changePassword")}
             </SubmitButton>
           </form>
         </CardContent>
       </Card>
 
-
+      <DeviceSettings vapidPublicKey={vapidPublicKey} onFeedback={(value) => show("device", value)} />
+      <InlineFeedback feedback={feedbackFor("device")} />
     </div>
   );
 }

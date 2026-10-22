@@ -9,23 +9,9 @@ import { translateValidation } from "@/lib/i18n/server";
 import { actionFailure, actionSuccess, serverApi, type ActionState } from "@/lib/server-api";
 import { clearSessionCookies, REMEMBER_COOKIE, setSessionCookies } from "@/lib/session";
 import type { OtpChallenge, Session, User } from "@/lib/types";
-import { formText, hasErrors, summarize, validateChangePassword, validateProfile } from "@/lib/validation";
+import { formText, hasErrors, summarize, validateChangePassword } from "@/lib/validation";
 
-/** "Save profile": PATCH /api/users/me { firstname, lastname }. */
-export async function updateProfileAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const values = { firstname: formText(formData, "firstname").trim(), lastname: formText(formData, "lastname").trim() };
-  const errors = await translateValidation(validateProfile(values));
-  if (hasErrors(errors)) return { ok: false, message: summarize(errors), fieldErrors: errors, values, at: Date.now() };
-
-  try {
-    await serverApi<User>("/users/me", { method: "PATCH", body: values });
-  } catch (e) {
-    return actionFailure(e, { values });
-  }
-  const t = await getTranslations("account.profile");
-  refresh();
-  return actionSuccess(t("saved"), { values });
-}
+// "Save profile" is not a Server Action: it goes through the offline outbox (account-view.tsx), so it works offline.
 
 /** "Two-step verification" switch: PATCH /api/users/me { twoFactorEnabled }. */
 export async function setTwoFactorAction(enabled: boolean): Promise<ActionState<{ enabled: boolean }>> {

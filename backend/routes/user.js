@@ -3,6 +3,7 @@ const {
   getMe,
   updateMe,
   listUsers,
+  getDirectory,
   getUserStats,
   createUser,
   getUser,
@@ -24,6 +25,7 @@ router.patch('/me', updateMe);
 const adminOnly = requireRole('ADMIN');
 router.get('/', adminOnly, listUsers);
 router.get('/stats', adminOnly, getUserStats);
+router.get('/directory', adminOnly, getDirectory);
 router.post('/', adminOnly, createUser);
 router.get('/:id', adminOnly, getUser);
 router.patch('/:id', adminOnly, updateUser);

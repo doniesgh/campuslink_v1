@@ -6,8 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "CampusLink",
     short_name: "CampusLink",
-    description:
-      "Your whole campus in one app: timetable, announcements and notifications, even offline.",
+    description: "Your campus in one app: forum, notifications and your account, even offline.",
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",
@@ -21,8 +20,11 @@ export default function manifest(): MetadataRoute.Manifest {
       { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
     shortcuts: [
-      { name: "Timetable", short_name: "Timetable", url: "/dashboard/timetable", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
-      { name: "Announcements", short_name: "Announcements", url: "/dashboard/announcements", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
+      { name: "Forum", short_name: "Forum", url: "/dashboard/forum", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
+      { name: "Notifications", short_name: "Notifications", url: "/dashboard/notifications", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
+      { name: "My account", short_name: "Account", url: "/dashboard/account", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
+      // Admins only (others are sent to /dashboard).
+      { name: "Users", short_name: "Users", url: "/dashboard/admin/users", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
     ],
   };
 }

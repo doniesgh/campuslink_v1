@@ -1,3 +1,5 @@
+import type { Role } from "@/lib/types";
+
 export type PostType = "covoiturage" | "objet_perdu" | "experience" | "idee";
 export type PostStatus = "active" | "closed" | "resolved";
 export type LostKind = "perdu" | "trouve";
@@ -5,10 +7,17 @@ export type LostKind = "perdu" | "trouve";
 export const TYPES: PostType[] = ["covoiturage", "objet_perdu", "experience", "idee"];
 export const STATUSES: PostStatus[] = ["active", "closed", "resolved"];
 
+/** Author of a post or comment as the API sends it (null once the account is deleted). */
 export interface Author {
   _id: string;
-  name: string;
-  avatar?: string;
+  firstname: string;
+  lastname: string;
+}
+
+/** The signed-in user: the author of a post or comment, or an ADMIN, can manage it. */
+export interface Viewer {
+  id: string;
+  role: Role;
 }
 
 export interface CarpoolInfo {
@@ -28,7 +37,7 @@ export interface LostInfo {
 
 export interface Post {
   _id: string;
-  author: Author | string;
+  author: Author | string | null;
   type: PostType;
   title: string;
   description: string;
@@ -54,7 +63,7 @@ export interface PostsPage {
 export interface PostComment {
   _id: string;
   post: string;
-  author: Author;
+  author: Author | null;
   content: string;
   parent: string | null;
   createdAt: string;

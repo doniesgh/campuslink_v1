@@ -39,7 +39,56 @@
     "updated": "{name} a été mis à jour.",
     "deleted": "{name} a été supprimé.",
     "empty": "Aucun utilisateur ne correspond à ces filtres.",
-    "you": "toi"
+    "you": "toi",
+    "offline": {
+      "saved": "{count, plural, one {# compte enregistré} other {# comptes enregistrés}} sur cet appareil",
+      "updated": "mis à jour {time}",
+      "offline": "Tu es hors ligne : voici la copie enregistrée sur cet appareil. Tes modifications sont gardées ici et envoyées dès que tu es reconnecté.",
+      "notSaved": "La liste des utilisateurs n'est pas encore enregistrée sur cet appareil. Ouvre cette page une fois en ligne.",
+      "truncated": "Seuls les {count} premiers comptes sont enregistrés sur cet appareil.",
+      "backgroundOn": "Actualisée en arrière-plan",
+      "backgroundOff": "L'actualisation en arrière-plan demande l'appli installée"
+    },
+    "stats": "Comptes par rôle",
+    "state": {
+      "pendingCreate": "En attente de synchronisation",
+      "pendingUpdate": "Modification en attente",
+      "pendingDelete": "Sera supprimé",
+      "rejected": "Non appliqué"
+    },
+    "undo": "Annuler",
+    "retry": "Réessayer",
+    "discard": "Abandonner",
+    "queued": {
+      "create": "{name} est enregistré sur cet appareil et sera ajouté dès que tu es reconnecté.",
+      "update": "La modification de {name} est enregistrée sur cet appareil et sera envoyée dès que tu es reconnecté.",
+      "delete": "{name} sera supprimé dès que tu es reconnecté."
+    },
+    "dropped": "{name} n'avait jamais été envoyé : il a été retiré de cet appareil.",
+    "undone": "Modification annulée.",
+    "discarded": "Modification abandonnée.",
+    "issues": {
+      "title": "{count, plural, one {# modification n'a pas pu être appliquée} other {# modifications n'ont pas pu être appliquées}}",
+      "description": "Le serveur a refusé ces modifications faites sur cet appareil. Modifie le compte et enregistre à nouveau, réessaie, ou abandonne la modification.",
+      "create": "Ajouter {name}",
+      "update": "Modifier {name}",
+      "delete": "Supprimer {name}"
+    },
+    "synced": "{count, plural, one {# modification envoyée} other {# modifications envoyées}} au serveur.",
+    "export": "Exporter en CSV",
+    "share": "Partager",
+    "exported": "{count, plural, one {# compte exporté} other {# comptes exportés}}.",
+    "csv": {
+      "lastname": "Nom",
+      "firstname": "Prénom",
+      "email": "E-mail",
+      "role": "Rôle",
+      "group": "Groupe",
+      "createdAt": "Créé le"
+    },
+    "previous": "Précédent",
+    "next": "Suivant",
+    "pending": "En attente"
   },
   "academic": {
     "metaTitle": "Structure académique",

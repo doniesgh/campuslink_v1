@@ -42,9 +42,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-# Backend dependencies
-/backend/node_modules/
 
-# Backend environment variables
+# backend: dependencies, environment, request log, uploaded files
+/backend/node_modules/
 /backend/.env
 /backend/.env.*
+!/backend/.env.example
+/backend/logs/
+/backend/uploads/

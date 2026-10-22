@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const POST_TYPES = ['covoiturage', 'objet_perdu', 'experience', 'idee'];
+const POST_STATUSES = ['active', 'closed', 'resolved'];
 
 const postSchema = new mongoose.Schema(
   {
@@ -31,13 +32,23 @@ const postSchema = new mongoose.Schema(
       contactPhone: String,
     },
 
-    status: { type: String, enum: ['active', 'closed', 'resolved'], default: 'active', index: true },
+    status: { type: String, enum: POST_STATUSES, default: 'active', index: true },
+    // Who liked the post: never sent to clients (only likesCount).
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     likesCount: { type: Number, default: 0 },
     commentsCount: { type: Number, default: 0 },
     views: { type: Number, default: 0 },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      transform: (doc, ret) => {
+        delete ret.likes;
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
 );
 
 postSchema.index({ title: 'text', description: 'text', tags: 'text' });
@@ -45,3 +56,4 @@ postSchema.index({ type: 1, status: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Post', postSchema);
 module.exports.POST_TYPES = POST_TYPES;
+module.exports.POST_STATUSES = POST_STATUSES;

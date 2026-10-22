@@ -3,39 +3,14 @@
 import * as React from "react";
 import Link from "@/components/ui/app-link";
 import { usePathname } from "next/navigation";
-import {
-  Bell,
-  Boxes,
-  Car,
-  CalendarCheck,
-  CalendarCog,
-  CalendarDays,
-  ClipboardCheck,
-  Flag,
-  GraduationCap,
-  Handshake,
-  House,
-  Megaphone,
-  Menu,
-  MessagesSquare,
-  School,
-  ShieldAlert,
-  ShoppingBag,
-  ScrollText,
-  Send,
-  TrendingUp,
-  UserPen,
-  UserRound,
-  UserSearch,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+import { Bell, House, Menu, MessagesSquare, ScrollText, UserRound, Users, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useUnreadCount } from "@/components/notifications/use-unread-count";
 import { LanguageSwitcher } from "@/components/i18n/language-switcher";
+import { AppBadge } from "@/components/pwa/app-badge";
 import { LogoutButton } from "@/components/shell/logout-button";
 import { isActive, MAIN_NAV, navGroups, type NavIconName, type NavItem } from "@/components/shell/nav-items";
-import { Button } from "@/components/ui/ButtonForm";
+import { Button } from "@/components/ui/button";
 import Logo from "@/components/ui/logo";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { Role } from "@/lib/types";
@@ -43,27 +18,10 @@ import { cn } from "@/lib/utils";
 
 const ICONS: Record<NavIconName, LucideIcon> = {
   home: House,
-  timetable: CalendarDays,
-  announcements: Megaphone,
   notifications: Bell,
+  forum: MessagesSquare,
   account: UserRound,
   users: Users,
-  academic: School,
-  timetableManagement: CalendarCog,
-  announcementsManagement: Send,
-  bookings: CalendarCheck,
-  forum: MessagesSquare,
-  analytics: TrendingUp,
-  attendance: ClipboardCheck,
-  grades: GraduationCap,
-  bookingsManagement: Boxes,
-  forumModeration: Flag,
-  studentFollowUp: UserSearch,
-  carpool: Car,
-  marketplace: ShoppingBag,
-  alumni: Handshake,
-  alumniProfile: UserPen,
-  marketplaceModeration: ShieldAlert,
   audit: ScrollText,
 };
 
@@ -189,6 +147,7 @@ export function AppShell({
 
   return (
     <div className="flex flex-1 bg-muted">
+      {user && <AppBadge unread={unread} />}
       <a
         href="#main-content"
         className="sr-only z-[70] rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only focus:fixed focus:left-4 focus:top-4"

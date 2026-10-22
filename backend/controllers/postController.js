@@ -1,186 +1,181 @@
-const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
-const { POST_TYPES } = require('../models/Post');
+const HttpError = require('../utils/httpError');
+const { assertObjectId, isBlank, notFound, parsePagination, validationError } = require('../utils/validation');
 
-const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
+const { POST_TYPES, POST_STATUSES } = Post;
+const AUTHOR_FIELDS = 'firstname lastname';
+// Never sent to clients: who liked the post (only likesCount is public).
+const HIDDEN_FIELDS = '-likes -__v';
+// Fields the author (or an admin) can change. The type is chosen once, at creation.
+const EDITABLE = ['title', 'description', 'tags', 'images', 'location', 'covoiturage', 'objetPerdu', 'status'];
 
-// Champs modifiables par l'auteur
-const EDITABLE = [
-  'title', 'description', 'tags', 'images', 'location',
-  'covoiturage', 'objetPerdu', 'status',
-];
+// One string query parameter (repeated parameters such as ?tag=a&tag=b keep the first value).
+const queryString = (value) => {
+  const first = Array.isArray(value) ? value[0] : value;
+  return typeof first === 'string' && first.trim() !== '' ? first.trim() : undefined;
+};
+
+const findPost = async (id) => {
+  assertObjectId(id);
+  const post = await Post.findById(id);
+  if (!post) throw notFound('Post');
+  return post;
+};
+
+// The author of a post or comment, or an admin.
+const assertCanManage = (user, doc) => {
+  if (!doc.author.equals(user._id) && user.role !== 'ADMIN') {
+    throw new HttpError(403, 'FORBIDDEN', 'Only the author or an admin can do this');
+  }
+};
+
+const readPost = (id) => Post.findById(id).select(HIDDEN_FIELDS).populate('author', AUTHOR_FIELDS).lean();
 
 // POST /api/posts
-exports.createPost = async (req, res) => {
-  try {
-    const { type, title, description } = req.body;
+const createPost = async (req, res) => {
+  const body = req.body ?? {};
+  const { type } = body;
+  const details = {};
 
-    if (!POST_TYPES.includes(type)) {
-      return res.status(400).json({ message: `Type invalide. Valeurs : ${POST_TYPES.join(', ')}` });
-    }
-    if (!title || !description) {
-      return res.status(400).json({ message: 'Titre et description obligatoires' });
-    }
-    if (type === 'covoiturage') {
-      const c = req.body.covoiturage || {};
-      if (!c.departure || !c.destination || !c.departureDate || !c.seats) {
-        return res.status(400).json({ message: 'Covoiturage : départ, destination, date et places requis' });
-      }
-    }
-    if (type === 'objet_perdu') {
-      const o = req.body.objetPerdu || {};
-      if (!['perdu', 'trouve'].includes(o.kind)) {
-        return res.status(400).json({ message: "Objet : kind doit être 'perdu' ou 'trouve'" });
-      }
-    }
-
-    const data = { type, author: req.user._id };
-    EDITABLE.forEach((f) => { if (req.body[f] !== undefined && f !== 'status') data[f] = req.body[f]; });
-
-    const post = await Post.create(data);
-    res.status(201).json(post);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
+  if (!POST_TYPES.includes(type)) details.type = `type must be one of ${POST_TYPES.join(', ')}`;
+  if (isBlank(body.title)) details.title = 'title is required';
+  if (isBlank(body.description)) details.description = 'description is required';
+  if (type === 'covoiturage') {
+    const trip = body.covoiturage ?? {};
+    ['departure', 'destination', 'departureDate', 'seats'].forEach((field) => {
+      if (isBlank(trip[field])) details[`covoiturage.${field}`] = `covoiturage.${field} is required`;
+    });
   }
+  if (type === 'objet_perdu' && !['perdu', 'trouve'].includes(body.objetPerdu?.kind)) {
+    details['objetPerdu.kind'] = "objetPerdu.kind must be 'perdu' or 'trouve'";
+  }
+  if (Object.keys(details).length > 0) throw validationError(details);
+
+  const data = { type, author: req.user._id };
+  EDITABLE.forEach((field) => {
+    if (body[field] !== undefined && field !== 'status') data[field] = body[field];
+  });
+
+  const post = await Post.create(data);
+  res.status(201).json(post);
 };
 
-// GET /api/posts?type=&status=&q=&tag=&author=&page=&limit=&sort=
-exports.getPosts = async (req, res) => {
-  try {
-    const { type, status = 'active', q, tag, author, sort = 'recent' } = req.query;
-    const page = Math.max(parseInt(req.query.page) || 1, 1);
-    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+// GET /api/posts?type=&status=active|closed|resolved|all&q=&tag=&author=&sort=recent|popular&page=&limit=
+const getPosts = async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 50 });
+  const type = queryString(req.query.type);
+  const status = queryString(req.query.status) ?? 'active';
+  const q = queryString(req.query.q);
+  const tag = queryString(req.query.tag);
+  const author = queryString(req.query.author);
 
-    const filter = {};
-    if (type) filter.type = type;
-    if (status !== 'all') filter.status = status;
-    if (tag) filter.tags = tag.toLowerCase();
-    if (author && isValidId(author)) filter.author = author;
-    if (q) filter.$text = { $search: q };
-
-    const sortBy = sort === 'popular' ? { likesCount: -1, createdAt: -1 } : { createdAt: -1 };
-
-    const [posts, total] = await Promise.all([
-      Post.find(filter)
-        .populate('author', 'firstname lastname')
-        .sort(sortBy)
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean(),
-      Post.countDocuments(filter),
-    ]);
-
-    res.json({ posts, page, pages: Math.ceil(total / limit), total });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
+  const filter = {};
+  const details = {};
+  if (type) {
+    if (POST_TYPES.includes(type)) filter.type = type;
+    else details.type = `type must be one of ${POST_TYPES.join(', ')}`;
   }
+  if (status !== 'all') {
+    if (POST_STATUSES.includes(status)) filter.status = status;
+    else details.status = `status must be one of ${POST_STATUSES.join(', ')}, all`;
+  }
+  if (Object.keys(details).length > 0) throw validationError(details);
+  if (tag) filter.tags = tag.toLowerCase();
+  if (author) {
+    assertObjectId(author);
+    filter.author = author;
+  }
+  if (q) filter.$text = { $search: q };
+
+  const sortBy = req.query.sort === 'popular' ? { likesCount: -1, createdAt: -1 } : { createdAt: -1 };
+  const [posts, total] = await Promise.all([
+    Post.find(filter).select(HIDDEN_FIELDS).populate('author', AUTHOR_FIELDS).sort(sortBy).skip(skip).limit(limit).lean(),
+    Post.countDocuments(filter),
+  ]);
+
+  res.status(200).json({ posts, page, pages: Math.ceil(total / limit), total });
 };
 
-// GET /api/posts/:id
-exports.getPost = async (req, res) => {
-  try {
-    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'ID invalide' });
-
-    const post = await Post.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } }, { new: true })
-      .populate('author', 'name avatar');
-    if (!post) return res.status(404).json({ message: 'Annonce introuvable' });
-
-    res.json(post);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
-  }
+// GET /api/posts/:id — counts a view, except with ?view=0 (a refresh of the counters).
+const getPost = async (req, res) => {
+  assertObjectId(req.params.id);
+  if (req.query.view !== '0') await Post.updateOne({ _id: req.params.id }, { $inc: { views: 1 } });
+  const post = await readPost(req.params.id);
+  if (!post) throw notFound('Post');
+  res.status(200).json(post);
 };
 
-// PUT /api/posts/:id  (auteur ou admin)
-exports.updatePost = async (req, res) => {
-  try {
-    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'ID invalide' });
+// PUT /api/posts/:id (author or admin)
+const updatePost = async (req, res) => {
+  const post = await findPost(req.params.id);
+  assertCanManage(req.user, post);
 
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Annonce introuvable' });
-
-    const isOwner = post.author.equals(req.user._id);
-    if (!isOwner && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Action non autorisée' });
-    }
-
-    EDITABLE.forEach((f) => { if (req.body[f] !== undefined) post[f] = req.body[f]; });
-    await post.save();
-    res.json(post);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
-  }
+  const body = req.body ?? {};
+  EDITABLE.forEach((field) => {
+    if (body[field] !== undefined) post[field] = body[field];
+  });
+  await post.save();
+  res.status(200).json(await readPost(post._id));
 };
 
-// DELETE /api/posts/:id  (auteur ou admin)
-exports.deletePost = async (req, res) => {
-  try {
-    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'ID invalide' });
-
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Annonce introuvable' });
-
-    const isOwner = post.author.equals(req.user._id);
-    if (!isOwner && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Action non autorisée' });
-    }
-
-    await Promise.all([post.deleteOne(), Comment.deleteMany({ post: post._id })]);
-    res.json({ message: 'Annonce supprimée' });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
+// PATCH /api/posts/:id/status { status: 'active' | 'closed' | 'resolved' } (author or admin)
+const changeStatus = async (req, res) => {
+  const { status } = req.body ?? {};
+  if (!POST_STATUSES.includes(status)) {
+    throw validationError({ status: `status must be one of ${POST_STATUSES.join(', ')}` });
   }
+  const post = await findPost(req.params.id);
+  assertCanManage(req.user, post);
+
+  post.status = status;
+  await post.save();
+  res.status(200).json(await readPost(post._id));
 };
 
-// POST /api/posts/:id/like  (toggle)
-exports.toggleLike = async (req, res) => {
-  try {
-    if (!isValidId(req.params.id)) return res.status(400).json({ message: 'ID invalide' });
+// DELETE /api/posts/:id (author or admin): the post and its comments → 204
+const deletePost = async (req, res) => {
+  const post = await findPost(req.params.id);
+  assertCanManage(req.user, post);
 
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Annonce introuvable' });
-
-    const idx = post.likes.findIndex((u) => u.equals(req.user._id));
-    if (idx === -1) post.likes.push(req.user._id);
-    else post.likes.splice(idx, 1);
-
-    post.likesCount = post.likes.length;
-    await post.save();
-
-    res.json({ liked: idx === -1, likesCount: post.likesCount });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
-  }
+  await Promise.all([post.deleteOne(), Comment.deleteMany({ post: post._id })]);
+  res.status(204).end();
 };
 
-// PATCH /api/posts/:id/status  { status: 'active' | 'closed' | 'resolved' }
-exports.changeStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-    if (!['active', 'closed', 'resolved'].includes(status)) {
-      return res.status(400).json({ message: 'Statut invalide' });
-    }
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: 'Annonce introuvable' });
+// POST /api/posts/:id/like → { liked, likesCount }. Toggles atomically (two quick clicks never double count).
+const toggleLike = async (req, res) => {
+  assertObjectId(req.params.id);
+  const userId = req.user._id;
 
-    if (!post.author.equals(req.user._id) && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Action non autorisée' });
-    }
-    post.status = status;
-    await post.save();
-    res.json(post);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const liked = await Post.exists({ _id: req.params.id, likes: userId });
+    if (liked === null && !(await Post.exists({ _id: req.params.id }))) throw notFound('Post');
+
+    // Only applies when the like state is still the one just read.
+    const updated = await Post.findOneAndUpdate(
+      liked ? { _id: req.params.id, likes: userId } : { _id: req.params.id, likes: { $ne: userId } },
+      liked ? { $pull: { likes: userId }, $inc: { likesCount: -1 } } : { $addToSet: { likes: userId }, $inc: { likesCount: 1 } },
+      { returnDocument: 'after', projection: { likesCount: 1 } }
+    ).lean();
+    if (updated) return res.status(200).json({ liked: !liked, likesCount: updated.likesCount });
   }
+  throw new HttpError(409, 'CONFLICT', 'The post changed at the same time, try again');
 };
 
 // GET /api/posts/me
-exports.getMyPosts = async (req, res) => {
-  try {
-    const posts = await Post.find({ author: req.user._id }).sort({ createdAt: -1 });
-    res.json(posts);
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur', error: err.message });
-  }
+const getMyPosts = async (req, res) => {
+  const posts = await Post.find({ author: req.user._id }).select(HIDDEN_FIELDS).sort({ createdAt: -1 }).lean();
+  res.status(200).json(posts);
+};
+
+module.exports = {
+  createPost,
+  getPosts,
+  getPost,
+  updatePost,
+  changeStatus,
+  deletePost,
+  toggleLike,
+  getMyPosts,
+  assertCanManage,
 };
