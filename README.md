@@ -312,8 +312,11 @@ export all run on that copy, so they work the same online and offline; the filte
   the whole form, so a later edit replaces a waiting one), delete (`DELETE /users/:id`; it also drops a waiting
   edit of that user). Editing an account created offline rewrites its waiting creation (keeping its password);
   deleting one just drops it.
+- Layout (`user-list.tsx`): cards below 1280 px (one column on phones, two from 768 px; on phones the role chips,
+  with "All roles", replace the role select), a table above. Both carry the same `data-*` attributes.
 - What the admin sees is the saved directory with the waiting changes applied on top (`applyChanges()`): rows
-  `tr[data-user-id][data-state="synced|pending|rejected"][data-change="create|update|delete"]` with "Waiting to
+  `tr[data-user-id][data-state="synced|pending|rejected"][data-change="create|update|delete"]` (cards:
+  `li[data-user-id]…`) with "Waiting to
   sync" / "Change waiting to sync" / "Will be deleted" (struck through) and "Undo". The cached directory itself is
   never modified, so a refetch can't hide a waiting change.
 - Refused on replay (4xx, e.g. `EMAIL_TAKEN`): the change stays (`keepRejected`) and shows in "<n> changes couldn't

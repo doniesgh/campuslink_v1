@@ -42,7 +42,7 @@
     "you": "you",
     "offline": {
       "saved": "{count, plural, one {# account} other {# accounts}} saved on this device",
-      "updated": "updated {time}",
+      "updated": "Updated {time}",
       "offline": "You're offline: this is the copy saved on this device. Your changes are kept here and sent when you're back online.",
       "notSaved": "The user list isn't saved on this device yet. Open this page once while online.",
       "truncated": "Only the first {count} accounts are saved on this device.",

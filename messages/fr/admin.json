@@ -42,7 +42,7 @@
     "you": "toi",
     "offline": {
       "saved": "{count, plural, one {# compte enregistré} other {# comptes enregistrés}} sur cet appareil",
-      "updated": "mis à jour {time}",
+      "updated": "Mis à jour {time}",
       "offline": "Tu es hors ligne : voici la copie enregistrée sur cet appareil. Tes modifications sont gardées ici et envoyées dès que tu es reconnecté.",
       "notSaved": "La liste des utilisateurs n'est pas encore enregistrée sur cet appareil. Ouvre cette page une fois en ligne.",
       "truncated": "Seuls les {count} premiers comptes sont enregistrés sur cet appareil.",

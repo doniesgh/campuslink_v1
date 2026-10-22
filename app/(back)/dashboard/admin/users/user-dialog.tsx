@@ -151,7 +151,7 @@ export function UserDialog({
           </div>
           <InlineFeedback feedback={message ? { type: "error", message: message.text, at: message.at } : null} />
           <div className="flex justify-end">
-            <SubmitButton pending={pending} className="h-10 w-auto rounded-full px-6 shadow-none">
+            <SubmitButton pending={pending} className="h-11 w-full rounded-full px-6 shadow-none sm:h-10 sm:w-auto">
               {t("form.save")}
             </SubmitButton>
           </div>

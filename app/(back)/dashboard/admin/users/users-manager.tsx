@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { CircleAlert, CloudOff, CloudUpload, Download, HardDrive, Pencil, RefreshCw, RotateCcw, Search, Share2, Trash2, Undo2, UserPlus, Users } from "lucide-react";
+import { CircleAlert, Clock, CloudOff, Download, HardDrive, Pencil, RefreshCw, RotateCcw, Search, Share2, UserPlus, Users } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { ConfirmDialog } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { InlineFeedback, useFeedback } from "@/components/ui/feedback";
@@ -12,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Select } from "@/components/ui/select";
 import { SkeletonList } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { todayKey } from "@/lib/datetime";
 import { useErrorFormatter } from "@/lib/i18n/client";
 import {
@@ -36,7 +33,6 @@ import {
   filterRows,
   GROUPS_KEY,
   GROUPS_PATH,
-  groupLabel,
   toCsv,
   USERS_SCOPE,
   userChanges,
@@ -49,6 +45,7 @@ import {
 import { deleteUser } from "@/lib/users/mutations";
 import { cn } from "@/lib/utils";
 import { UserDialog, type SaveOutcome } from "./user-dialog";
+import { UserList } from "./user-list";
 
 const PAGE_SIZE = 20;
 
@@ -69,6 +66,13 @@ function withoutUser(directory: Directory | undefined, id: string): Directory | 
   const items = directory.items.filter((item) => item.id !== id);
   return { ...directory, items, total: Math.max(0, directory.total - (directory.items.length - items.length)) };
 }
+
+/** Role filter chip (36 px high on phones: an easy touch target). */
+const chipClass = (pressed: boolean) =>
+  cn(
+    "rounded-full border px-3.5 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:py-1",
+    pressed ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent"
+  );
 
 const subscribeNothing = () => () => undefined;
 
@@ -130,6 +134,7 @@ export function UsersManager({
   const issues = useMemo(() => userChanges(records).filter((change) => change.record.rejected), [records]);
   const visible = useMemo(() => filterRows(rows, filters), [rows, filters]);
   const counts = useMemo(() => countByRole(rows), [rows]);
+  const total = ROLES.reduce((sum, role) => sum + counts[role], 0);
   const pages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const page = Math.min(filters.page, pages);
   const pageRows = visible.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -167,6 +172,11 @@ export function UsersManager({
   }, [setFeedback, t]);
 
   const setFilter = (patch: Partial<Filters>) => setFilters((current) => ({ ...current, page: 1, ...patch }));
+  // Back to the top of the list: on a phone the "Next" button is far below it.
+  const goToPage = (next: number) => {
+    setFilters((current) => ({ ...current, page: next }));
+    document.getElementById("users-results")?.scrollIntoView({ block: "start" });
+  };
   const openDialog = (editing: UserRow | null, draft: UserInput | null = null) =>
     setDialog((current) => ({ open: true, editing, draft, key: current.key + 1 }));
 
@@ -253,27 +263,43 @@ export function UsersManager({
         title={t("title")}
         description={t("subtitle")}
         actions={
-          <Button className="rounded-full" onClick={() => openDialog(null)}>
+          <Button className="w-full rounded-full sm:w-auto" onClick={() => openDialog(null)}>
             <UserPlus className="h-4 w-4" aria-hidden="true" />
             {t("add")}
           </Button>
         }
       />
 
-      {/* Where the list comes from: always this device's copy, refreshed when online. */}
-      <p data-testid="users-offline-status" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-        {online ? <HardDrive className="h-4 w-4" aria-hidden="true" /> : <CloudOff className="h-4 w-4 text-highlight" aria-hidden="true" />}
-        {!online && <span className="font-medium text-foreground">{t("offline.offline")}</span>}
-        {saved && <span>{t("offline.saved", { count: saved.items.length })}</span>}
-        {saved && savedAt && <span>· {t("offline.updated", { time: format.dateTime(new Date(savedAt), "dayMonthTime") })}</span>}
-        {background && (
-          <span className="inline-flex items-center gap-1">
-            · <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            {background === "on" ? t("offline.backgroundOn") : t("offline.backgroundOff")}
-          </span>
+      {/* Where the list comes from: always this device's copy, refreshed when online. One item per line on phones. */}
+      <div data-testid="users-offline-status" className="space-y-2 text-sm">
+        {!online && (
+          <p className="flex items-start gap-2 rounded-2xl border border-highlight/40 bg-highlight/10 px-3 py-2.5 font-medium text-foreground">
+            <CloudOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {t("offline.offline")}
+          </p>
         )}
-      </p>
-      {saved?.truncated && <p className="text-sm text-muted-foreground">{t("offline.truncated", { count: saved.items.length })}</p>}
+        <ul className="flex flex-col gap-1 text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-5">
+          {saved && (
+            <li className="flex items-center gap-1.5">
+              <HardDrive className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {t("offline.saved", { count: saved.items.length })}
+            </li>
+          )}
+          {saved && savedAt && (
+            <li className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {t("offline.updated", { time: format.dateTime(new Date(savedAt), "dayMonthTime") })}
+            </li>
+          )}
+          {background && (
+            <li className="flex items-center gap-1.5">
+              <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {background === "on" ? t("offline.backgroundOn") : t("offline.backgroundOff")}
+            </li>
+          )}
+        </ul>
+        {saved?.truncated && <p className="text-muted-foreground">{t("offline.truncated", { count: saved.items.length })}</p>}
+      </div>
 
       <form role="search" className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={(event) => event.preventDefault()}>
         <div className="flex-1 space-y-2">
@@ -293,7 +319,8 @@ export function UsersManager({
             />
           </div>
         </div>
-        <div className="space-y-2 sm:w-56">
+        {/* Phones filter with the role chips below (same filter, bigger targets). */}
+        <div className="hidden space-y-2 sm:block sm:w-56">
           <label htmlFor="users-role" className="block text-sm font-medium">
             {t("role")}
           </label>
@@ -307,12 +334,12 @@ export function UsersManager({
           </Select>
         </div>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" className="rounded-full" onClick={exportCsv} disabled={visible.length === 0}>
+          <Button type="button" variant="outline" className="flex-1 rounded-full sm:flex-none" onClick={exportCsv} disabled={visible.length === 0}>
             <Download className="h-4 w-4" aria-hidden="true" />
             {t("export")}
           </Button>
           {canShare && (
-            <Button type="button" variant="outline" className="rounded-full" onClick={() => void shareCsv()} disabled={visible.length === 0}>
+            <Button type="button" variant="outline" className="flex-1 rounded-full sm:flex-none" onClick={() => void shareCsv()} disabled={visible.length === 0}>
               <Share2 className="h-4 w-4" aria-hidden="true" />
               {t("share")}
             </Button>
@@ -322,16 +349,19 @@ export function UsersManager({
 
       {saved && (
         <ul aria-label={t("stats")} className="flex flex-wrap gap-2">
+          {/* "All" is only needed where the role select is hidden. */}
+          <li className="sm:hidden">
+            <button type="button" aria-pressed={filters.role === ""} onClick={() => setFilter({ role: "" })} className={chipClass(filters.role === "")}>
+              {t("allRoles")} · <span className="font-semibold">{total}</span>
+            </button>
+          </li>
           {ROLES.map((value) => (
             <li key={value}>
               <button
                 type="button"
                 aria-pressed={filters.role === value}
                 onClick={() => setFilter({ role: filters.role === value ? "" : value })}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  filters.role === value ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:bg-accent"
-                )}
+                className={chipClass(filters.role === value)}
               >
                 {tRoles(value)} · <span className="font-semibold">{counts[value]}</span>
               </button>
@@ -364,18 +394,18 @@ export function UsersManager({
                   <p className="font-medium">{changeLabel(change.info.kind, change.info.name)}</p>
                   {change.record.rejected && <p className="text-destructive">{reason(change.record.rejected)}</p>}
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
+                <div className="flex shrink-0 gap-2">
                   {change.info.kind !== "delete" && (
-                    <Button variant="outline" size="sm" className="rounded-full" onClick={() => editChange(change)}>
+                    <Button variant="outline" size="sm" className="flex-1 rounded-full sm:flex-none" onClick={() => editChange(change)}>
                       <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                       {t("edit")}
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" className="rounded-full" onClick={() => void retryOutboxRecord(change.record.id)}>
+                  <Button variant="outline" size="sm" className="flex-1 rounded-full sm:flex-none" onClick={() => void retryOutboxRecord(change.record.id)}>
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                     {t("retry")}
                   </Button>
-                  <Button variant="ghost" size="sm" className="rounded-full text-destructive" onClick={() => void discard(change.record.id)}>
+                  <Button variant="ghost" size="sm" className="flex-1 rounded-full text-destructive sm:flex-none" onClick={() => void discard(change.record.id)}>
                     {t("discard")}
                   </Button>
                 </div>
@@ -395,102 +425,24 @@ export function UsersManager({
         <EmptyState icon={Users} title={t("empty")} />
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">{tPagination("total", { count: visible.length })}</p>
-          <Table aria-label={t("title")}>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("columns.name")}</TableHead>
-                <TableHead>{t("columns.email")}</TableHead>
-                <TableHead>{t("columns.role")}</TableHead>
-                <TableHead>{t("columns.group")}</TableHead>
-                <TableHead className="text-right">{t("columns.actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pageRows.map((row) => {
-                const name = `${row.firstname} ${row.lastname}`;
-                const isSelf = row.id === currentUserId;
-                const state = row.state;
-                const deleting = state.kind === "pending" && state.change === "delete";
-                return (
-                  <TableRow
-                    key={row.id}
-                    data-user-id={row.id}
-                    data-state={state.kind}
-                    data-change={state.kind === "synced" ? undefined : state.change}
-                    className={cn(deleting && "opacity-60")}
-                  >
-                    <TableCell className="font-medium">
-                      <span className={cn(deleting && "line-through")}>{name}</span>
-                      {isSelf && <span className="ml-2 text-xs text-muted-foreground">({t("you")})</span>}
-                      {state.kind === "pending" && (
-                        <Badge variant="warning" className="ml-2 gap-1 align-middle">
-                          <CloudUpload className="h-3 w-3" aria-hidden="true" />
-                          {state.change === "create" ? t("state.pendingCreate") : state.change === "update" ? t("state.pendingUpdate") : t("state.pendingDelete")}
-                        </Badge>
-                      )}
-                      {state.kind === "rejected" && (
-                        <Badge variant="danger" className="ml-2 align-middle" title={reason(state.rejection)}>
-                          {t("state.rejected")}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className={cn("text-muted-foreground", deleting && "line-through")}>{row.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={row.role === "ADMIN" ? "default" : "secondary"}>{tRoles(row.role)}</Badge>
-                    </TableCell>
-                    <TableCell>{row.group ? groupLabel(row.group) : "—"}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        {state.kind === "pending" ? (
-                          <>
-                            {!deleting && (
-                              <Button variant="outline" size="sm" className="rounded-full" onClick={() => openDialog(row)}>
-                                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                                {t("edit")}
-                              </Button>
-                            )}
-                            <Button variant="ghost" size="sm" className="rounded-full" onClick={() => void undo(state.recordId)}>
-                              <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
-                              {t("undo")}
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button variant="outline" size="sm" className="rounded-full" onClick={() => openDialog(row)}>
-                              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                              {t("edit")}
-                            </Button>
-                            {!isSelf && (
-                              <ConfirmDialog
-                                trigger={
-                                  <Button variant="outline" size="sm" className="rounded-full text-destructive hover:text-destructive">
-                                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                    {t("delete")}
-                                  </Button>
-                                }
-                                title={t("confirmDeleteTitle", { name })}
-                                description={t("confirmDeleteDescription")}
-                                confirmLabel={t("confirmDelete")}
-                                onConfirm={() => remove(row)}
-                              />
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <p id="users-results" className="scroll-mt-20 text-sm text-muted-foreground">
+            {tPagination("total", { count: visible.length })}
+          </p>
+          <UserList
+            rows={pageRows}
+            currentUserId={currentUserId}
+            reason={reason}
+            onEdit={(row) => openDialog(row)}
+            onDelete={remove}
+            onUndo={(recordId) => void undo(recordId)}
+          />
           {pages > 1 && (
             <nav aria-label={tPagination("label")} className="flex items-center justify-between gap-3">
-              <Button variant="outline" size="sm" className="rounded-full" disabled={page <= 1} onClick={() => setFilters((current) => ({ ...current, page: page - 1 }))}>
+              <Button variant="outline" className="rounded-full sm:h-9 sm:px-3" disabled={page <= 1} onClick={() => goToPage(page - 1)}>
                 {t("previous")}
               </Button>
               <span className="text-sm text-muted-foreground">{tPagination("pageOf", { page, pages })}</span>
-              <Button variant="outline" size="sm" className="rounded-full" disabled={page >= pages} onClick={() => setFilters((current) => ({ ...current, page: page + 1 }))}>
+              <Button variant="outline" className="rounded-full sm:h-9 sm:px-3" disabled={page >= pages} onClick={() => goToPage(page + 1)}>
                 {t("next")}
               </Button>
             </nav>
