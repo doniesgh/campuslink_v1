@@ -288,10 +288,19 @@ const checkImportRows = async (rows) => {
       role,
       group,
     });
-    const invalid = user.validateSync();
-    Object.entries(invalid?.errors ?? {}).forEach(([field, error]) => fail(row, field, importErrorCode(field, error), error.message));
     users.push({ row, user });
   });
+
+  await Promise.all(
+    users.map(async ({ row, user }) => {
+      const invalid = await user.validate().then(
+        () => null,
+        (error) => error
+      );
+      if (invalid && !invalid.errors) throw invalid;
+      Object.entries(invalid?.errors ?? {}).forEach(([field, error]) => fail(row, field, importErrorCode(field, error), error.message));
+    })
+  );
 
   const seen = new Set();
   users.forEach(({ row, user }) => {
