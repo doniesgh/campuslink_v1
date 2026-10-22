@@ -398,6 +398,42 @@ password (sent before the sessions and push subscriptions are revoked); every ad
 - Feedback: at most one `role="status"` and one `role="alert"` inside `<main>` at a time (tests look them up there).
   Dialogs are portals (outside `<main>`): report the outcome of a dialog action in the page.
 
+## Deployment
+
+Web app on **Vercel** (`vercel.json`, `.vercelignore` leaves `backend/` out), API on **Render** (`render.yaml`, root
+directory `backend`), database on **MongoDB Atlas** (free M0).
+
+- Render's free plan sleeps after 15 minutes without traffic (the next request waits ~1 minute) and blocks SMTP
+  ports: emails go through Brevo's HTTPS API (`BREVO_API_KEY`, `MAIL_FROM_EMAIL` = a sender verified in Brevo).
+- Atlas: a database user, Network Access `0.0.0.0/0` (Render's free plan has no fixed outgoing IP), and the
+  connection string `mongodb+srv://<user>:<password>@<cluster>/campuslink?retryWrites=true&w=majority` as `MONGO_URI`.
+- Order: Atlas, then Render (API URL `https://<service>.onrender.com`), then Vercel (web URL), then put each URL in
+  the other's settings and redeploy the web app (`NEXT_PUBLIC_*` values are inlined at build time).
+
+| Render (API) | Value |
+| ------------ | ----- |
+| `NODE_ENV` | `production` |
+| `MONGO_URI` | Atlas connection string |
+| `JWT_SECRET` | long random string (`render.yaml` generates one) |
+| `CORS_ORIGINS`, `APP_URL` | the web app's URL |
+| `PUBLIC_API_URL` | the API's URL |
+| `TRUST_PROXY` | `2` (Render's proxy + the web app server); check below |
+| `STORAGE_DRIVER` | `gridfs` (no persistent disk) |
+| `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME` | Brevo key and verified sender |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | `npm run generate-vapid`, `mailto:<your email>` |
+
+| Vercel (web app) | Value |
+| ---------------- | ----- |
+| `API_URL`, `NEXT_PUBLIC_REALTIME_URL` | the API's URL |
+| `NEXT_PUBLIC_APP_TIMEZONE` | `Africa/Tunis` |
+| `TRUSTED_PROXY_HOPS` | `1` (Vercel writes the client address in `X-Forwarded-For`) |
+
+- Demo data: `npm run seed:demo` from `backend/` with `MONGO_URI` set to the Atlas string (it refuses
+  `NODE_ENV=production`, so run it from your machine).
+- Client IP: as an admin, open `/bff/audit/request-info` on the web app: `ip` must be your own address (it is the
+  address recorded in the audit log and used by the per-IP rate limits). If it shows another address, adjust
+  `TRUST_PROXY` on Render using `forwardedFor`.
+
 ## Notes for end-to-end tests
 
 - Next.js adds a hidden route announcer with `role="alert"`; scope alert lookups to the page,

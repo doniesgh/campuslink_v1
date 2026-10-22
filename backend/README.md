@@ -331,8 +331,11 @@ Jobs never run when `app.js` is only imported (`require('./app')`), e.g. by scri
 - `utils/env.js`: `envString`, `envBool`, `envNumber(name, fallback)`, `isProduction()`, `trustProxySetting()`,
   `publicApiUrl()` (`PUBLIC_API_URL` without trailing slash).
 - `utils/serialize.js`: `idOf(value)`, `isPopulated(value)`, `refSummary(value, ['name', 'code'])`, `cleanTransform(hidden)`.
-- `service/mailService.js`: `sendEmail({ to, subject, text, html })` (throws on failure; fails in production
-  without SMTP), `isSmtpConfigured()`, `escapeHtml`, `BRAND_COLOR`.
+- `service/mailService.js`: `sendEmail({ to, subject, text, html })` through Brevo's HTTPS API when
+  `BREVO_API_KEY` + `MAIL_FROM_EMAIL` are set (hosts that block SMTP, e.g. Render's free plan), else SMTP (throws on
+  failure; fails in production without either), `isEmailConfigured()`, `isSmtpConfigured()`, `escapeHtml`, `BRAND_COLOR`.
+- `GET /api/audit/request-info` (ADMIN): `{ ip, ips, forwardedFor, trustProxy }`, how the API sees the caller's
+  address, to set `TRUST_PROXY` behind a hosting proxy.
 
 ### Error codes
 

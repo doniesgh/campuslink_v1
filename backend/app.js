@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 const logger = require('./middleware/logger');
 const errorHandler = require('./middleware/errorHandler');
 const { isProduction, trustProxySetting } = require('./utils/env');
-const { isSmtpConfigured } = require('./service/mailService');
+const { isEmailConfigured } = require('./service/mailService');
 const scheduler = require('./service/scheduler');
 const realtime = require('./service/realtime');
 const authRoutes = require('./routes/auth');
@@ -68,8 +68,8 @@ const start = async () => {
     );
     process.exit(1);
   }
-  if (isProduction() && !isSmtpConfigured()) {
-    console.warn('[mail] NODE_ENV=production without SMTP_USER/SMTP_PASS: emails (2FA codes, reset links) will fail.');
+  if (isProduction() && !isEmailConfigured()) {
+    console.warn('[mail] NODE_ENV=production without BREVO_API_KEY/MAIL_FROM_EMAIL or SMTP_USER/SMTP_PASS: emails (2FA codes, reset links) will fail.');
   }
 
   const port = Number(process.env.PORT) || 4000;

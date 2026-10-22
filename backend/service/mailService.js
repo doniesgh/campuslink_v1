@@ -42,6 +42,33 @@ const getTransporter = () => {
 
 const getFrom = () => process.env.SMTP_FROM || `"CampusLink" <${process.env.SMTP_USER || 'no-reply@campuslink.local'}>`;
 
+// Brevo transactional email API (HTTPS): for hosts that block outbound SMTP ports, such as Render's free plan.
+// Used instead of SMTP when BREVO_API_KEY and MAIL_FROM_EMAIL (a sender verified in Brevo) are set.
+const BREVO_URL = 'https://api.brevo.com/v3/smtp/email';
+const BREVO_TIMEOUT_MS = 15000;
+
+const isBrevoConfigured = () => Boolean(process.env.BREVO_API_KEY && process.env.MAIL_FROM_EMAIL);
+const isEmailConfigured = () => isBrevoConfigured() || isSmtpConfigured();
+
+const sendWithBrevo = async ({ to, subject, text, html }) => {
+  const response = await fetch(BREVO_URL, {
+    method: 'POST',
+    headers: { 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify({
+      sender: { email: process.env.MAIL_FROM_EMAIL, name: process.env.MAIL_FROM_NAME || 'CampusLink' },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html || `<p>${escapeHtml(text).replace(/\n/g, '<br>')}</p>`,
+      textContent: text,
+    }),
+    signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Brevo answered ${response.status}: ${detail.slice(0, 300)}`);
+  }
+};
+
 // When MAIL_OUTBOX_FILE is set, every email is also appended to it as one JSON line.
 // End-to-end tests read OTP codes and reset links from this file.
 const appendToOutbox = async (mail) => {
@@ -58,12 +85,19 @@ const appendToOutbox = async (mail) => {
 };
 
 // Throws when the email could not be sent; callers decide how to report it.
-// In production (NODE_ENV=production) without SMTP it fails, and the content is never logged.
+// Brevo when configured, else SMTP. In production (NODE_ENV=production) without either it fails, and the content
+// is never logged.
 const sendEmail = async ({ to, subject, text, html }) => {
   if (!to) throw new Error('sendEmail: missing recipient');
 
+  if (isBrevoConfigured()) {
+    await sendWithBrevo({ to, subject, text, html });
+    await appendToOutbox({ to, subject, text, html });
+    return;
+  }
+
   if (!isSmtpConfigured() && isProduction()) {
-    throw new Error('SMTP is not configured (SMTP_USER/SMTP_PASS): emails cannot be sent in production');
+    throw new Error('No email transport (BREVO_API_KEY + MAIL_FROM_EMAIL, or SMTP_USER/SMTP_PASS): emails cannot be sent in production');
   }
 
   await getTransporter().sendMail({ from: getFrom(), to, subject, text, html });
@@ -184,6 +218,7 @@ const passwordResetMailTemplate = (link, locale = DEFAULT_LOCALE) => {
 module.exports = {
   BRAND_COLOR,
   isSmtpConfigured,
+  isEmailConfigured,
   sendEmail,
   escapeHtml,
   otpMailTemplate,

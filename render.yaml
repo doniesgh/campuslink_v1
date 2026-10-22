@@ -1,0 +1,50 @@
+# Render Blueprint of the CampusLink API (backend/). The web app runs on Vercel (vercel.json), the database on
+# MongoDB Atlas. See README.md ("Deployment"). Values marked `sync: false` are entered in the Render dashboard.
+services:
+  - type: web
+    name: campuslink-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      # The web app's public URL (CORS, links in emails).
+      - key: CORS_ORIGINS
+        sync: false
+      - key: APP_URL
+        sync: false
+      # This API's public URL (https://<service>.onrender.com).
+      - key: PUBLIC_API_URL
+        sync: false
+      # Render's proxy + the Next.js server on Vercel: check with GET /api/audit/request-info (README).
+      - key: TRUST_PROXY
+        value: "2"
+      - key: APP_TIMEZONE
+        value: Africa/Tunis
+      # No persistent disk on the free plan: uploaded files go to MongoDB (GridFS).
+      - key: STORAGE_DRIVER
+        value: gridfs
+      # The free plan blocks SMTP ports: emails go through Brevo's HTTPS API.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM_EMAIL
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: CampusLink
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false

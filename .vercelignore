@@ -6,5 +6,7 @@
 .next-*
 node_modules
 .vercel
-pnpm-lock.yaml
-pnpm-workspace.yaml
+.vscode
+# The API runs on Render (render.yaml), not on Vercel.
+/backend
+render.yaml
