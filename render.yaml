@@ -27,9 +27,10 @@ services:
       # This API's public URL (https://<service>.onrender.com).
       - key: PUBLIC_API_URL
         sync: false
-      # Render's proxy + the Next.js server on Vercel: check with GET /api/audit/request-info (README).
+      # Proxies in front of the API for web users: Render's load balancer, Cloudflare (Render's edge) and the Vercel
+      # function that relays the browser (it forwards the browser's address). Check with GET /api/audit/request-info.
       - key: TRUST_PROXY
-        value: "2"
+        value: "4"
       - key: APP_TIMEZONE
         value: Africa/Tunis
       # No persistent disk on the free plan: uploaded files go to MongoDB (GridFS).

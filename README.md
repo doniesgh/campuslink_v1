@@ -417,7 +417,7 @@ directory `backend`), database on **MongoDB Atlas** (free M0).
 | `JWT_SECRET` | long random string (`render.yaml` generates one) |
 | `CORS_ORIGINS`, `APP_URL` | the web app's URL |
 | `PUBLIC_API_URL` | the API's URL |
-| `TRUST_PROXY` | `2` (Render's proxy + the web app server); check below |
+| `TRUST_PROXY` | `4`: Render's load balancer, Cloudflare (Render's edge), the Vercel function and the address it forwards; check below |
 | `STORAGE_DRIVER` | `gridfs` (no persistent disk) |
 | `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME` | Brevo key and verified sender |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | `npm run generate-vapid`, `mailto:<your email>` |
@@ -432,7 +432,9 @@ directory `backend`), database on **MongoDB Atlas** (free M0).
   `NODE_ENV=production`, so run it from your machine).
 - Client IP: as an admin, open `/bff/audit/request-info` on the web app: `ip` must be your own address (it is the
   address recorded in the audit log and used by the per-IP rate limits). If it shows another address, adjust
-  `TRUST_PROXY` on Render using `forwardedFor`.
+  `TRUST_PROXY` on Render using `forwardedFor`: through the web app it reads `<you>, <Vercel>, <Cloudflare>,
+  <Render load balancer>`, hence 4. Callers of the API itself (not through the web app) have one entry less, so
+  they can put any address in `X-Forwarded-For`: only the per-IP limits are affected, the per-email limits still apply.
 
 ## Notes for end-to-end tests
 
