@@ -57,3 +57,4 @@
 2026-10-22T10:19:22.275Z - PATCH /api/posts/6ad9ddf21e2568924ca3ff57/status 404 - user: - - ip: ::1 - Body: {"status":"resolved"}
 2026-10-22T10:21:08.851Z - PATCH /api/users/me 200 - user: 6ad8db8a3c123451261040ea - ip: ::1 - Body: {"twoFactorEnabled":true}
 2026-10-22T10:21:09.718Z - PATCH /api/users/me 200 - user: 6ad8db8a3c123451261040ea - ip: ::1 - Body: {"twoFactorEnabled":false}
+2026-10-22T10:33:16.553Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
