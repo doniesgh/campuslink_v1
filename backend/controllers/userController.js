@@ -17,6 +17,8 @@ const { revokeAllRefreshTokens } = require('../service/tokenService');
 const auditService = require('../service/auditService');
 const realtime = require('../service/realtime');
 const { notifyAccountChanged } = require('../service/accountNotifications');
+const { isEmailConfigured } = require('../service/mailService');
+const { isProduction } = require('../utils/env');
 
 // Maximum number of users sent by GET /api/users/directory (the admin's offline copy of the user list).
 const DIRECTORY_MAX = 5000;
@@ -68,6 +70,14 @@ const pickChanges = (body, allowed) => {
   return { changes, details };
 };
 
+// Two-step verification sends its login codes by email: on a production server without an email service, turning
+// it on would lock the account out.
+const assertTwoFactorAvailable = (changes) => {
+  if (changes.twoFactorEnabled === true && isProduction() && !isEmailConfigured()) {
+    throw new HttpError(409, 'EMAIL_UNAVAILABLE', 'Two-step verification needs an email service, which this server does not have');
+  }
+};
+
 // Checks a group assignment: only for students, and the group must exist.
 const checkGroupAssignment = async (groupId, role) => {
   if (groupId === undefined || groupId === null) return;
@@ -92,6 +102,7 @@ const updateMe = async (req, res) => {
   const { changes, details } = pickChanges(req.body ?? {}, ['firstname', 'lastname', 'twoFactorEnabled', 'locale']);
   throwIfInvalid(details);
   if (Object.keys(changes).length === 0) throw noChanges();
+  assertTwoFactorAvailable(changes);
 
   const user = req.user;
   user.set(changes);
@@ -237,6 +248,7 @@ const updateUser = async (req, res) => {
   const { changes, details } = pickChanges(req.body ?? {}, UPDATABLE_FIELDS);
   throwIfInvalid(details);
   if (Object.keys(changes).length === 0) throw noChanges();
+  assertTwoFactorAvailable(changes);
 
   const nextRole = changes.role ?? user.role;
   await checkGroupAssignment(changes.group, nextRole);

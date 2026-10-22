@@ -132,6 +132,7 @@
     "PAYLOAD_TOO_LARGE": "The request is too large.",
     "UNSUPPORTED_FILE_TYPE": "This file type isn't supported.",
     "TOO_MANY_FILES": "Too many files.",
-    "AUDIENCE_NOT_ALLOWED": "You can't send to this audience."
+    "AUDIENCE_NOT_ALLOWED": "You can't send to this audience.",
+    "EMAIL_UNAVAILABLE": "Two-step verification isn't available yet: this server can't send emails."
   }
 }
