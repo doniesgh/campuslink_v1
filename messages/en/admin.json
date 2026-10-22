@@ -1,0 +1,228 @@
+{
+  "users": {
+    "metaTitle": "Users",
+    "title": "Users",
+    "subtitle": "Create accounts, choose their role and put students in their group.",
+    "search": "Search",
+    "searchPlaceholder": "Name or email",
+    "role": "Role",
+    "allRoles": "All roles",
+    "add": "Add user",
+    "addTitle": "Add a user",
+    "editTitle": "Edit {name}",
+    "columns": {
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "group": "Group",
+      "actions": "Actions"
+    },
+    "form": {
+      "firstname": "First name",
+      "lastname": "Last name",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "At least {min} characters.",
+      "passwordEditHint": "Leave empty to keep the current password.",
+      "role": "Role",
+      "group": "Group",
+      "noGroup": "No group",
+      "groupHint": "Only students belong to a group.",
+      "save": "Save"
+    },
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirmDeleteTitle": "Delete {name}?",
+    "confirmDeleteDescription": "This account and its sessions will be removed. This can't be undone.",
+    "confirmDelete": "Confirm delete",
+    "created": "{name} has been added.",
+    "updated": "{name} has been updated.",
+    "deleted": "{name} has been deleted.",
+    "empty": "No users match these filters.",
+    "you": "you"
+  },
+  "academic": {
+    "metaTitle": "Academic structure",
+    "title": "Academic structure",
+    "subtitle": "Programs, groups, subjects and rooms used by the timetable and the announcements.",
+    "tabs": {
+      "programs": "Programs",
+      "groups": "Groups",
+      "subjects": "Subjects",
+      "rooms": "Rooms"
+    },
+    "add": {
+      "programs": "Add program",
+      "groups": "Add group",
+      "subjects": "Add subject",
+      "rooms": "Add room"
+    },
+    "addTitle": {
+      "programs": "Add a program",
+      "groups": "Add a group",
+      "subjects": "Add a subject",
+      "rooms": "Add a room"
+    },
+    "editTitle": {
+      "programs": "Edit program",
+      "groups": "Edit group",
+      "subjects": "Edit subject",
+      "rooms": "Edit room"
+    },
+    "empty": {
+      "programs": "No programs yet.",
+      "groups": "No groups yet.",
+      "subjects": "No subjects yet.",
+      "rooms": "No rooms yet."
+    },
+    "fields": {
+      "name": "Name",
+      "code": "Code",
+      "description": "Description",
+      "program": "Program",
+      "chooseProgram": "Choose a program",
+      "level": "Level",
+      "academicYear": "Academic year",
+      "academicYearHint": "Format: 2026-2027",
+      "students": "Students",
+      "color": "Color",
+      "building": "Building",
+      "capacity": "Capacity",
+      "type": "Type",
+      "actions": "Actions"
+    },
+    "levelValue": "Level {level}",
+    "roomTypes": {
+      "CLASSROOM": "Classroom",
+      "AMPHITHEATER": "Amphitheater",
+      "LAB": "Lab",
+      "OTHER": "Other"
+    },
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirmDeleteTitle": "Delete “{name}”?",
+    "confirmDeleteDescription": "This can't be undone.",
+    "confirmDelete": "Confirm delete",
+    "saved": "“{name}” has been saved.",
+    "deleted": "“{name}” has been deleted.",
+    "inUse": "“{name}” is still in use, so it can't be deleted."
+  },
+  "audit": {
+    "metaTitle": "Audit log",
+    "title": "Audit log",
+    "subtitle": "Who did what, and when.",
+    "action": "Action",
+    "allActions": "All actions",
+    "columns": {
+      "date": "Date",
+      "actor": "Actor",
+      "action": "Action",
+      "target": "Target",
+      "ip": "IP"
+    },
+    "actionLabels": {
+      "user": {
+        "create": "User created",
+        "update": "User updated",
+        "delete": "User deleted"
+      },
+      "auth": {
+        "password_reset": "Password reset",
+        "password_change": "Password changed"
+      },
+      "academic": {
+        "program": {
+          "create": "Program created",
+          "update": "Program updated",
+          "delete": "Program deleted"
+        },
+        "group": {
+          "create": "Group created",
+          "update": "Group updated",
+          "delete": "Group deleted"
+        },
+        "subject": {
+          "create": "Subject created",
+          "update": "Subject updated",
+          "delete": "Subject deleted"
+        },
+        "room": {
+          "create": "Room created",
+          "update": "Room updated",
+          "delete": "Room deleted"
+        }
+      },
+      "timetable": {
+        "session": {
+          "create": "Session created",
+          "update": "Session updated",
+          "cancel": "Session cancelled",
+          "delete": "Session deleted"
+        },
+        "import": "Timetable imported (CSV)",
+        "calendar_link": {
+          "reset": "Calendar link reset"
+        }
+      },
+      "announcement": {
+        "create": "Announcement created",
+        "publish": "Announcement published",
+        "schedule": "Announcement scheduled",
+        "update": "Announcement updated",
+        "delete": "Announcement deleted"
+      },
+      "equipment": {
+        "create": "Equipment added",
+        "update": "Equipment updated",
+        "delete": "Equipment deleted"
+      },
+      "booking": {
+        "approve": "Booking approved",
+        "reject": "Booking rejected",
+        "cancel": "Booking cancelled"
+      },
+      "forum": {
+        "hide": "Forum content hidden",
+        "unhide": "Forum content shown again",
+        "delete": "Forum content deleted"
+      },
+      "attendance": {
+        "update": "Attendance updated"
+      },
+      "grades": {
+        "assessment": {
+          "create": "Assessment created",
+          "update": "Assessment updated",
+          "delete": "Assessment deleted"
+        },
+        "publish": "Grades published",
+        "update": "Grades changed"
+      },
+      "carpool": {
+        "trip": {
+          "cancel": "Trip cancelled"
+        }
+      },
+      "marketplace": {
+        "approve": "Document approved",
+        "reject": "Document rejected",
+        "unpublish": "Document unpublished",
+        "review": {
+          "delete": "Marketplace review deleted"
+        }
+      },
+      "alumni": {
+        "export": "Alumni data exported",
+        "erase": "Alumni data erased",
+        "post": {
+          "delete": "Alumni post deleted",
+          "hide": "Alumni post hidden",
+          "unhide": "Alumni post shown again"
+        }
+      }
+    },
+    "system": "System",
+    "empty": "No entries match this filter."
+  }
+}

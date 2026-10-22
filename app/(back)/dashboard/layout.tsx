@@ -1,0 +1,36 @@
+import { ClientMessages, DASHBOARD_NAMESPACES } from "@/components/i18n/client-messages";
+import { DataLayerProvider } from "@/components/offline/data-layer-provider";
+import { AppShell } from "@/components/shell/app-shell";
+import { getCurrentUser } from "@/lib/dal";
+import { serverSnapshot } from "@/lib/server-api";
+
+export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const { user } = await getCurrentUser();
+
+  if (!user) {
+    // Backend unreachable: the page itself explains the problem.
+    return (
+      <ClientMessages namespaces={DASHBOARD_NAMESPACES}>
+        <AppShell user={null} unreadCount={0}>
+          {children}
+        </AppShell>
+      </ClientMessages>
+    );
+  }
+
+  const unread = await serverSnapshot<{ count?: number } | null>("/notifications/unread-count", null);
+
+  return (
+    <ClientMessages namespaces={DASHBOARD_NAMESPACES}>
+      <DataLayerProvider userId={user.id}>
+        <AppShell
+          user={{ firstname: user.firstname, lastname: user.lastname, email: user.email, role: user.role }}
+          unreadCount={typeof unread.data?.count === "number" ? unread.data.count : 0}
+          renderedAt={unread.savedAt}
+        >
+          {children}
+        </AppShell>
+      </DataLayerProvider>
+    </ClientMessages>
+  );
+}

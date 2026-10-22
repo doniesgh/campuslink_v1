@@ -1,0 +1,59 @@
+2026-10-09T10:17:51.911Z - POST /api/auth/signup 201 - user: - - ip: ::1 - Body: {"firstname":"Donia","lastname":"Gharbi","email":"doniagharbi141@gmail.com","password":"[REDACTED]","locale":"fr"}
+2026-10-09T10:20:36.710Z - PATCH /api/users/me 200 - user: 6ac8bf4fff6364b7d0ec39f7 - ip: ::1 - Body: {"locale":"en"}
+2026-10-09T10:33:02.605Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-09T10:36:25.442Z - PATCH /api/users/me 200 - user: 6ac8bf4fff6364b7d0ec39f7 - ip: ::1 - Body: {"twoFactorEnabled":true}
+2026-10-09T10:36:27.389Z - PATCH /api/users/me 200 - user: 6ac8bf4fff6364b7d0ec39f7 - ip: ::1 - Body: {"twoFactorEnabled":false}
+2026-10-09T15:12:18.749Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T08:54:23.282Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T09:06:33.799Z - POST /api/auth/logout 204 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T09:06:40.148Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"doniagharbi141@gmail.com","password":"[REDACTED]"}
+2026-10-16T09:21:39.829Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T09:38:34.474Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T09:57:39.848Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T10:27:33.075Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T10:40:56.254Z - POST /api/auth/logout 204 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T12:23:40.488Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"doniagharbi141@gmail.com","password":"[REDACTED]"}
+2026-10-16T12:38:41.033Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T13:15:35.449Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"doniagharbi141@gmail.com","password":"[REDACTED]"}
+2026-10-16T13:30:39.917Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T13:45:36.880Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T20:09:01.576Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"doniagharbi141@gmail.com","password":"[REDACTED]"}
+2026-10-16T20:25:37.969Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-16T20:40:13.739Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-21T15:33:38.221Z - POST /api/auth/login 401 - user: - - ip: ::1 - Body: {"email":"doniagharbi141@gmail.com","password":"[REDACTED]"}
+2026-10-21T15:34:12.547Z - POST /api/auth/login 401 - user: - - ip: ::1 - Body: {"email":"doniagharbi141@gmail.com","password":"[REDACTED]"}
+2026-10-21T15:34:34.558Z - POST /api/auth/signup 201 - user: - - ip: ::1 - Body: {"firstname":"Donia","lastname":"Gharbi","email":"doniagharbi141@gmail.com","password":"[REDACTED]","locale":"fr"}
+2026-10-21T15:43:20.583Z - PATCH /api/users/me 200 - user: 6ad8db8a3c123451261040ea - ip: ::1 - Body: {"locale":"en"}
+2026-10-21T15:43:22.682Z - PATCH /api/users/me 200 - user: 6ad8db8a3c123451261040ea - ip: ::1 - Body: {"locale":"fr"}
+2026-10-21T15:49:05.239Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-21T16:04:06.293Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-21T16:18:37.346Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-21T16:35:06.783Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-21T16:50:05.237Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-21T17:13:27.914Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-21T19:15:50.979Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-21T19:49:44.550Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-21T23:04:33.248Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T07:47:18.592Z - POST /api/auth/refresh 401 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T07:47:21.100Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"doniagharbi141@gmail.com","password":"[REDACTED]"}
+2026-10-22T08:02:07.562Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T08:18:22.623Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T08:21:40.312Z - PUT /api/posts/6ad9c6ca0a2bb4b3fb868153 404 - user: - - ip: ::1 - Body: {"status":"closed"}
+2026-10-22T08:32:54.105Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T08:47:47.583Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T09:02:47.563Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T09:18:12.869Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T09:33:16.565Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T09:48:30.576Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T09:53:50.956Z - POST /api/posts 404 - user: - - ip: ::1 - Body: {"type":"covoiturage","title":"couvoiturage disponible","description":"test","tags":["test"],"covoiturage":{"departure":"tunis","destination":"campus","departureDate":"2026-10-22T10:00:00.000Z","seats":3,"price":0}}
+2026-10-22T09:54:05.140Z - POST /api/posts 404 - user: - - ip: ::1 - Body: {"type":"covoiturage","title":"couvoiturage disponible","description":"test","tags":["test","cov","free"],"covoiturage":{"departure":"tunis","destination":"campus","departureDate":"2026-10-22T10:00:00.000Z","seats":3,"price":0}}
+2026-10-22T09:54:10.690Z - POST /api/posts 404 - user: - - ip: ::1 - Body: {"type":"covoiturage","title":"couvoiturage disponible","description":"test","tags":["test","cov","free"],"covoiturage":{"departure":"tunis","destination":"campus","departureDate":"2026-10-22T10:00:00.000Z","seats":3,"price":0}}
+2026-10-22T09:55:52.670Z - POST /api/posts 404 - user: - - ip: ::1 - Body: {"type":"covoiturage","title":"couvoiturage disponible","description":"test","tags":["test","cov","free"],"covoiturage":{"departure":"tunis","destination":"campus","departureDate":"2026-10-22T10:00:00.000Z","seats":3,"price":0}}
+2026-10-22T09:55:52.671Z - POST /api/posts 404 - user: - - ip: ::1 - Body: {"type":"covoiturage","title":"couvoiturage disponible","description":"test","tags":["test","cov","free"],"covoiturage":{"departure":"tunis","destination":"campus","departureDate":"2026-10-22T10:00:00.000Z","seats":3,"price":0}}
+2026-10-22T09:57:06.098Z - POST /api/posts 201 - user: 6ad8db8a3c123451261040ea - ip: ::1 - Body: {"type":"covoiturage","title":"couvoiturage disponible","description":"test","tags":["test","cov","free"],"covoiturage":{"departure":"tunis","destination":"campus","departureDate":"2026-10-22T10:00:00.000Z","seats":3,"price":0}}
+2026-10-22T10:03:12.859Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T10:17:49.019Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T10:19:22.275Z - PATCH /api/posts/6ad9ddf21e2568924ca3ff57/status 404 - user: - - ip: ::1 - Body: {"status":"resolved"}
+2026-10-22T10:19:22.275Z - PATCH /api/posts/6ad9ddf21e2568924ca3ff57/status 404 - user: - - ip: ::1 - Body: {"status":"resolved"}
+2026-10-22T10:21:08.851Z - PATCH /api/users/me 200 - user: 6ad8db8a3c123451261040ea - ip: ::1 - Body: {"twoFactorEnabled":true}
+2026-10-22T10:21:09.718Z - PATCH /api/users/me 200 - user: 6ad8db8a3c123451261040ea - ip: ::1 - Body: {"twoFactorEnabled":false}
