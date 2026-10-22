@@ -133,6 +133,7 @@
     "UNSUPPORTED_FILE_TYPE": "Ce type de fichier n'est pas accepté.",
     "TOO_MANY_FILES": "Il y a trop de fichiers.",
     "AUDIENCE_NOT_ALLOWED": "Tu ne peux pas envoyer à ce public.",
-    "EMAIL_UNAVAILABLE": "La vérification en deux étapes n'est pas encore disponible : ce serveur ne peut pas envoyer d'e-mails."
+    "EMAIL_UNAVAILABLE": "La vérification en deux étapes n'est pas encore disponible : ce serveur ne peut pas envoyer d'e-mails.",
+    "IMPORT_TOO_LARGE": "50 comptes au plus par import."
   }
 }

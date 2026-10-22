@@ -20,6 +20,7 @@ export {
   replayOutbox,
   retryOutboxRecord,
   subscribeOutbox,
+  updateOutboxRecord,
   useOutbox,
   type MutationRequest,
   type MutationResult,

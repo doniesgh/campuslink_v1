@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/userModel');
 const Group = require('../models/groupModel');
+const AuditLog = require('../models/auditLogModel');
 const HttpError = require('../utils/httpError');
 const {
   requireFields,
@@ -22,6 +23,14 @@ const { isProduction } = require('../utils/env');
 
 // Maximum number of users sent by GET /api/users/directory (the admin's offline copy of the user list).
 const DIRECTORY_MAX = 5000;
+
+// POST /api/users/import: accounts per import (each password is hashed, about 0.5 s on a small server) and per
+// dry run (only checked), problems listed at most, and the id the web app gives each import.
+const IMPORT_MAX_ROWS = 50;
+const IMPORT_CHECK_MAX_ROWS = 1000;
+const IMPORT_MAX_ERRORS = 200;
+const IMPORT_ID_PATTERN = /^[A-Za-z0-9_-]{8,100}$/;
+const IMPORT_SOURCE_MAX_LENGTH = 200;
 
 const { ROLES } = User;
 
@@ -234,6 +243,160 @@ const createUser = async (req, res) => {
   res.status(201).json(user);
 };
 
+// Problem code of a model validation error, per field (the web app translates the codes).
+const importErrorCode = (field, error) => {
+  if (error.kind === 'required') return 'REQUIRED';
+  if (field === 'email') return 'INVALID_EMAIL';
+  if (field === 'password') return 'PASSWORD_TOO_SHORT';
+  if (field === 'role') return 'INVALID_ROLE';
+  if (error.kind === 'maxlength') return 'TOO_LONG';
+  return 'INVALID';
+};
+
+const isText = (value) => typeof value === 'string' && value.trim() !== '';
+
+// Checks the rows of an import: each one against the model, then together (same email twice, emails already
+// used, groups). Returns the users to insert and the problems, as { row, field, code, message } sorted by row
+// (`row` is the line of the file, sent by the web app).
+const checkImportRows = async (rows) => {
+  const errors = [];
+  const users = [];
+  const fail = (row, field, code, message) => errors.push({ row, field, code, message });
+
+  rows.forEach((item, index) => {
+    const row = Number.isInteger(item?.row) && item.row > 0 ? item.row : index + 1;
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      fail(row, null, 'INVALID_ROW', 'Each row must be an object');
+      return;
+    }
+
+    const role = isText(item.role) ? item.role.trim().toUpperCase() : 'STUDENT';
+    let group = null;
+    if (isText(item.group)) {
+      if (mongoose.isObjectIdOrHexString(item.group.trim())) group = new mongoose.Types.ObjectId(item.group.trim());
+      else fail(row, 'group', 'UNKNOWN_GROUP', 'group must be a group id');
+    }
+    if (group && role !== 'STUDENT') fail(row, 'group', 'GROUP_NOT_ALLOWED', ONLY_STUDENTS_MESSAGE);
+
+    // Strings only (no query operators); the model checks the rest (email format, lengths, role, password).
+    const text = (field) => (typeof item[field] === 'string' ? item[field] : undefined);
+    const user = new User({
+      firstname: text('firstname'),
+      lastname: text('lastname'),
+      email: text('email'),
+      password: text('password'),
+      role,
+      group,
+    });
+    const invalid = user.validateSync();
+    Object.entries(invalid?.errors ?? {}).forEach(([field, error]) => fail(row, field, importErrorCode(field, error), error.message));
+    users.push({ row, user });
+  });
+
+  const seen = new Set();
+  users.forEach(({ row, user }) => {
+    if (!user.email) return;
+    if (seen.has(user.email)) fail(row, 'email', 'DUPLICATE_EMAIL', 'This email is used by another row of the import');
+    seen.add(user.email);
+  });
+
+  const groupIds = [...new Set(users.map(({ user }) => idOf(user.group)).filter(Boolean))];
+  const [taken, groups] = await Promise.all([
+    seen.size > 0 ? User.find({ email: { $in: [...seen] } }).select('email').setOptions({ populateGroup: false }) : [],
+    groupIds.length > 0 ? Group.find({ _id: { $in: groupIds } }).select('_id') : [],
+  ]);
+  const takenEmails = new Set(taken.map((user) => user.email));
+  const knownGroups = new Set(groups.map((group) => String(group._id)));
+  users.forEach(({ row, user }) => {
+    if (takenEmails.has(user.email)) fail(row, 'email', 'EMAIL_TAKEN', 'An account with this email already exists');
+    const groupId = idOf(user.group);
+    if (groupId && !knownGroups.has(String(groupId))) fail(row, 'group', 'UNKNOWN_GROUP', 'Unknown group');
+  });
+
+  errors.sort((a, b) => a.row - b.row);
+  return { users: users.map(({ user }) => user), errors };
+};
+
+const importInvalid = (errors) =>
+  new HttpError(422, 'IMPORT_INVALID', `${errors.length} problem(s) in the imported rows: nothing was imported`, {
+    errors: errors.slice(0, IMPORT_MAX_ERRORS),
+    total: errors.length,
+  });
+
+// The accounts of an import already done with this id (its audit entry exists), or null.
+const importedBefore = async (importId, rows) => {
+  if (!(await AuditLog.exists({ action: 'user.import', targetType: 'Import', targetId: importId }))) return null;
+  const emails = rows.map((row) => (typeof row?.email === 'string' ? normalizeEmail(row.email) : null)).filter(Boolean);
+  return User.find({ email: { $in: emails } });
+};
+
+// One insert for the whole import, all or nothing. insertMany skips the save hook: the passwords are hashed here.
+const insertImport = async (users, rows) => {
+  for (const user of users) user.password = await User.hashPassword(user.password);
+  try {
+    await User.insertMany(users, { ordered: true });
+  } catch (error) {
+    // An account created meanwhile with one of these emails: what this import inserted is removed.
+    await User.deleteMany({ _id: { $in: users.map((user) => user._id) } });
+    if (error?.code !== 11000 && !error?.writeErrors) throw error;
+    const recheck = await checkImportRows(rows);
+    if (recheck.errors.length > 0) throw importInvalid(recheck.errors);
+    throw emailTaken();
+  }
+};
+
+// POST /api/users/import [admin] { importId, source?, dryRun?, users: [{ row, firstname, lastname, email, password,
+// role?, group? }] }. The web app reads the Excel or CSV file on the admin's device and sends its rows.
+// - dryRun: true → 200 { dryRun: true, count } when every row is valid (at most IMPORT_CHECK_MAX_ROWS rows).
+// - Otherwise at most IMPORT_MAX_ROWS rows, all or nothing: 201 { importId, created, items } or
+//   422 IMPORT_INVALID (details.errors [{ row, field, code, message }], details.total) and nothing is created.
+// - Sent again with the same importId (a reply lost on a bad connection) → 200, the accounts are not created twice.
+const importUsers = async (req, res) => {
+  const body = req.body ?? {};
+  const dryRun = body.dryRun === true;
+  const { importId, users: rows } = body;
+  const details = {};
+  if (!dryRun && (typeof importId !== 'string' || !IMPORT_ID_PATTERN.test(importId))) {
+    details.importId = 'importId must be 8 to 100 letters, digits, "-" or "_"';
+  }
+  if (!Array.isArray(rows) || rows.length === 0) details.users = 'users must be a non-empty array';
+  throwIfInvalid(details);
+
+  const max = dryRun ? IMPORT_CHECK_MAX_ROWS : IMPORT_MAX_ROWS;
+  if (rows.length > max) {
+    throw new HttpError(400, 'IMPORT_TOO_LARGE', `At most ${max} accounts per request`, { max });
+  }
+
+  const previous = dryRun ? null : await importedBefore(importId, rows);
+  if (previous) {
+    res.status(200).json({ importId, created: previous.length, items: previous, replayed: true });
+    return;
+  }
+
+  const { users, errors } = await checkImportRows(rows);
+  if (errors.length > 0) throw importInvalid(errors);
+  if (dryRun) {
+    res.status(200).json({ dryRun: true, count: users.length });
+    return;
+  }
+
+  await insertImport(users, rows);
+  const items = await User.find({ _id: { $in: users.map((user) => user._id) } })
+    .collation({ locale: 'fr', strength: 1 })
+    .sort({ lastname: 1, firstname: 1, _id: 1 });
+  const source = typeof body.source === 'string' ? body.source.trim().slice(0, IMPORT_SOURCE_MAX_LENGTH) : '';
+  const roles = Object.fromEntries(ROLES.map((role) => [role, items.filter((user) => user.role === role).length]).filter(([, count]) => count > 0));
+  await auditService.record(req, {
+    action: 'user.import',
+    targetType: 'Import',
+    targetId: importId,
+    summary: `Imported ${items.length} account(s)${source ? ` from ${source}` : ''}`,
+    metadata: { count: items.length, source: source || null, roles, users: items.map((user) => ({ id: user.id, email: user.email })) },
+  });
+
+  res.status(201).json({ importId, created: items.length, items });
+};
+
 // GET /api/users/:id [admin]
 const getUser = async (req, res) => {
   res.status(200).json(await findUserOr404(req.params.id));
@@ -373,6 +536,7 @@ module.exports = {
   getDirectory,
   getUserStats,
   createUser,
+  importUsers,
   getUser,
   updateUser,
   deleteUser,

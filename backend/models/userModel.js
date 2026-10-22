@@ -9,10 +9,11 @@ const Schema = mongoose.Schema;
 
 const ROLES = ['STUDENT', 'TEACHER', 'ADMIN', 'ALUMNI'];
 const NAME_MAX_LENGTH = 100;
+const PASSWORD_HASH_ROUNDS = 10;
 
 // Compared against when the email is unknown, so a login attempt takes about the same
 // time whether or not the account exists (no account enumeration through timing).
-const DUMMY_PASSWORD_HASH = bcrypt.hashSync('campuslink-dummy-password', 10);
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('campuslink-dummy-password', PASSWORD_HASH_ROUNDS);
 
 // How `group` is populated for the public JSON shape.
 const GROUP_POPULATE = {
@@ -128,10 +129,12 @@ userSchema.pre(/^find/, function () {
   this.populate(GROUP_POPULATE);
 });
 
+userSchema.statics.hashPassword = (password) => bcrypt.hash(String(password), PASSWORD_HASH_ROUNDS);
+
 // Mongoose validates (minlength on the plain password) before pre('save') hooks run.
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) return;
-  this.password = await bcrypt.hash(this.password, 10);
+  this.password = await User.hashPassword(this.password);
 });
 
 userSchema.methods.comparePassword = function (password) {

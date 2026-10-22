@@ -17,7 +17,8 @@ type ListProps = {
   reason: (rejection: OutboxRejection) => string;
   onEdit: (row: UserRow) => void;
   onDelete: (row: UserRow) => Promise<void>;
-  onUndo: (recordId: string) => void;
+  /** Drops the waiting change of the row. */
+  onUndo: (row: UserRow) => void;
 };
 
 type RowProps = Omit<ListProps, "rows"> & { row: UserRow };
@@ -61,7 +62,7 @@ function RowActions({ row, currentUserId, onEdit, onDelete, onUndo, stretch = fa
     return (
       <>
         {edit}
-        <Button variant="ghost" size={size} className={cn("rounded-full", width)} onClick={() => onUndo(state.recordId)}>
+        <Button variant="ghost" size={size} className={cn("rounded-full", width)} onClick={() => onUndo(row)}>
           <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
           {t("undo")}
         </Button>
@@ -173,6 +174,7 @@ export function UserList(props: Readonly<ListProps>) {
                   <span className="ml-2 inline-flex align-middle">
                     <StateBadge row={row} />
                   </span>
+                  {row.state.kind === "rejected" && <p className="mt-1 text-sm font-normal text-destructive">{props.reason(row.state.rejection)}</p>}
                 </TableCell>
                 <TableCell className={cn("text-muted-foreground", deleting && "line-through")}>{row.email}</TableCell>
                 <TableCell>

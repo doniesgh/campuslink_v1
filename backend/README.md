@@ -53,6 +53,7 @@ logs/operations.log    request log of state-changing calls, secrets redacted (gi
 | `GET /api/users/me`, `PATCH /api/users/me { firstname, lastname, twoFactorEnabled, locale }` | signed in | the user |
 | `GET /api/users?q&role&page&limit`, `GET /stats`, `POST /`, `GET/PATCH/DELETE /:id` | ADMIN | user management |
 | `GET /api/users/directory` | ADMIN | `{ items, total, truncated }`: every user (at most 5000), by last name: the web app's offline copy |
+| `POST /api/users/import { importId, source?, dryRun?, users: [{ row, firstname, lastname, email, password, role?, group? }] }` | ADMIN | bulk creation, see "User model" |
 | `GET /api/academic/groups` | ADMIN | groups with `studentCount` |
 | `GET /api/notifications?page&limit&unread=true` | signed in | `{ items, total, page, limit, unreadCount }`, newest first |
 | `GET /api/notifications/unread-count` | signed in | `{ count }` |
@@ -160,7 +161,18 @@ sessions had ids (such tokens keep working until they expire).
   public shape. It is skipped when the projection excludes `group` (`.select('firstname lastname')`,
   `Model.exists`) or with `.setOptions({ populateGroup: false })`.
 - After `user.save()` with a changed group, call `await user.populateGroup()` before sending it.
-- Exports: `User.ROLES`, `User.LOCALES`, `User.GROUP_POPULATE`.
+- Exports: `User.ROLES`, `User.LOCALES`, `User.GROUP_POPULATE`; `User.hashPassword(password)` (bcrypt, what the save
+  hook uses).
+- `POST /api/users/import` (the web app reads the Excel/CSV file and sends its rows; `row` = line of the file): every
+  row is checked against the model, then together (`DUPLICATE_EMAIL` in the import, `EMAIL_TAKEN`, `UNKNOWN_GROUP`,
+  `GROUP_NOT_ALLOWED`), all before anything is created. Problems → `422 IMPORT_INVALID`, `details: { errors: [{ row,
+  field, code, message }], total }` (codes: `REQUIRED`, `TOO_LONG`, `INVALID_EMAIL`, `PASSWORD_TOO_SHORT`,
+  `INVALID_ROLE`, `INVALID_ROW` and the four above), nothing created. `dryRun: true` only checks (at most 1000 rows,
+  `200 { dryRun, count }`). An import (at most 50 rows: each password is hashed, ~0.5 s on Render's free plan) is
+  all or nothing: one `insertMany`, removed again if it fails half-way; `201 { importId, created, items }`, audit
+  `user.import` (target `Import`/`importId`, metadata: count, source, roles, user ids and emails). Sent again with
+  the same `importId` (a reply lost on a bad connection, replayed by the web app's outbox) → `200 { …, replayed:
+  true }`, nothing created twice. More rows → `400 IMPORT_TOO_LARGE` (`details.max`).
 - Public JSON: `{ id, firstname, lastname, email, role, twoFactorEnabled, locale, group, createdAt, updatedAt }`.
 - `DELETE /api/users/:id`: the account loses its sessions, push subscriptions, real-time connections and in-app
   notifications; its forum posts and comments stay (author `null`, shown as "Unknown").
@@ -341,7 +353,7 @@ Jobs never run when `app.js` is only imported (`require('./app')`), e.g. by scri
 
 `AUTH_REQUIRED`, `TOKEN_EXPIRED`, `INVALID_TOKEN`, `FORBIDDEN`, `MISSING_FIELDS`, `VALIDATION_ERROR`,
 `INVALID_ID`, `INVALID_JSON`, `PAYLOAD_TOO_LARGE`, `NOT_FOUND` (unknown route), `NO_CHANGES`, `USER_NOT_FOUND`,
-`EMAIL_TAKEN`, `INVALID_ROLE`, `INVALID_CREDENTIALS`, `OTP_INVALID`, `OTP_TOO_MANY_ATTEMPTS`,
+`EMAIL_TAKEN`, `IMPORT_INVALID` (422, `details.errors`), `IMPORT_TOO_LARGE` (400, `details.max`), `INVALID_ROLE`, `INVALID_CREDENTIALS`, `OTP_INVALID`, `OTP_TOO_MANY_ATTEMPTS`,
 `INVALID_REFRESH_TOKEN`, `RESET_TOKEN_INVALID`, `INVALID_PASSWORD`, `CANNOT_DELETE_SELF`, `EMAIL_FAILED`,
 `RESOURCE_NOT_FOUND` (404), `ALREADY_EXISTS` (409, `details.field`), `IN_USE` (409, `details.references`),
 `CONFLICT` (409), `TOO_MANY_REQUESTS` (429, `details.retryAfter`), `PUSH_DISABLED` (503), `FILE_TOO_LARGE` (413),

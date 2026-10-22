@@ -6,6 +6,7 @@ const {
   getDirectory,
   getUserStats,
   createUser,
+  importUsers,
   getUser,
   updateUser,
   deleteUser,
@@ -27,6 +28,8 @@ router.get('/', adminOnly, listUsers);
 router.get('/stats', adminOnly, getUserStats);
 router.get('/directory', adminOnly, getDirectory);
 router.post('/', adminOnly, createUser);
+// Bulk creation from an Excel or CSV file read in the browser (see importUsers).
+router.post('/import', adminOnly, importUsers);
 router.get('/:id', adminOnly, getUser);
 router.patch('/:id', adminOnly, updateUser);
 router.delete('/:id', adminOnly, deleteUser);

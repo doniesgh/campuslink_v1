@@ -296,10 +296,10 @@ Files: `app/(back)/dashboard/forum/`, `components/forum/`, `lib/forum/`; API: `b
 
 ## User management (offline-first)
 
-Files: `app/(back)/dashboard/admin/users/` (`page.tsx`, `users-manager.tsx`, `user-dialog.tsx`),
-`app/(back)/dashboard/account/` (`account-view.tsx`, `device-settings.tsx`, `actions.ts`), `lib/users/`
-(`directory.ts`: pure functions, `mutations.ts`), `lib/pwa/`; API: `/api/users`, `/api/users/directory`,
-`/api/push`, `/api/notifications` (backend README).
+Files: `app/(back)/dashboard/admin/users/` (`page.tsx`, `users-manager.tsx`, `user-dialog.tsx`,
+`import-dialog.tsx`), `app/(back)/dashboard/account/` (`account-view.tsx`, `device-settings.tsx`, `actions.ts`),
+`lib/users/` (`directory.ts` and `import.ts`: pure functions, `mutations.ts`, `import-files.ts`), `lib/pwa/`; API:
+`/api/users`, `/api/users/directory`, `/api/users/import`, `/api/push`, `/api/notifications` (backend README).
 
 **Users page (ADMIN).** The whole directory (`GET /bff/users/directory`, every account, at most 5000) is rendered
 on the server for the first paint, then kept on the device by `useOfflineQuery(["users", "directory"])` with the
@@ -327,8 +327,26 @@ export all run on that copy, so they work the same online and offline; the filte
   got the permission, refreshed every 12 h by the service worker).
 - "Export CSV" (UTF-8 with BOM, formula-safe cells) of the filtered rows, built on the device; "Share" (Web Share
   API with files) where supported.
+- "Import" (`import-dialog.tsx`): an Excel (`.xlsx`, first sheet) or CSV file (`,` `;` or tab, UTF-8 or the
+  Windows-1252 of French Excel), read on the device with `read-excel-file`, so it works offline too. The title line
+  (French or English: "Nom", "Prénom", "E-mail", "Rôle", "Groupe", "Mot de passe" / "Last name", …) can be any of
+  the first 10 lines; each line is checked like the server does (`parseImport()` in `lib/users/import.ts`: required
+  names and email, email format, duplicates in the file, emails already in the directory, role by code or label,
+  group by name or "name · program" — the most recent academic year —, students only, password ≥ 8 characters or
+  generated: `Xxxx-xxxx-xxxx`). Online, a dry run (`POST /users/import { dryRun: true }`) adds what only the server
+  knows. Lines with problems are listed with their reasons; the import waits until the file is fixed or they're left
+  out ("Import the <n> correct accounts…"). Accounts go in parts of 25 (`IMPORT_BATCH_SIZE`: each password is hashed
+  on the server), one outbox record each (`POST /users/import`, key `POST /users/import#<importId>`, `keepRejected`
+  and `keepRefused`): sent at once online, kept on the device offline. Each account of a waiting part is a row of
+  the list ("Waiting to sync"); "Undo" or "Delete" takes it out of its part, "Edit" turns it into a creation of its
+  own (keeping its password). A part the server refuses (online or when it syncs) shows in "couldn't be applied"
+  with its first problems ("Line 12: Email: an account already uses it"), Retry / Discard; its accounts show their
+  own problem, or that they were held back by the others. At the end: "Download the sign-in details" (`.xlsx` with
+  every imported account's password; closing first asks once when passwords were generated). "Download the
+  template" writes an `.xlsx` with the titles and a help sheet listing the groups. `.xlsx` files are written with
+  `write-excel-file` (cells are text, never formulas).
 - Privacy: an admin's device keeps the directory (names, emails, roles, groups) and, until it syncs, the initial
-  password of an account created offline. Everything is scoped to the account and wiped at logout or when the
+  password of an account created or imported offline. Everything is scoped to the account and wiped at logout or when the
   session ends (see "How authentication works").
 
 **Account page.** Profile changes go through the outbox (`PATCH /users/me`, key `PATCH /users/me#profile`, scope

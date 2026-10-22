@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { CircleAlert, Clock, CloudOff, Download, HardDrive, Pencil, RefreshCw, RotateCcw, Search, Share2, UserPlus, Users } from "lucide-react";
+import { CircleAlert, Clock, CloudOff, Download, FileUp, HardDrive, Pencil, RefreshCw, RotateCcw, Search, Share2, UserPlus, Users } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -33,21 +33,28 @@ import {
   filterRows,
   GROUPS_KEY,
   GROUPS_PATH,
+  IMPORT_ROW_HELD,
+  IMPORT_ROW_INVALID,
+  serverProblems,
   toCsv,
   USERS_SCOPE,
   userChanges,
-  type ChangeKind,
   type Directory,
   type UserChange,
   type UserInput,
   type UserRow,
 } from "@/lib/users/directory";
-import { deleteUser } from "@/lib/users/mutations";
+import type { ImportProblem } from "@/lib/users/import";
+import { downloadBlob } from "@/lib/users/import-files";
+import { deleteUser, undoChange } from "@/lib/users/mutations";
 import { cn } from "@/lib/utils";
+import { ImportDialog, useImportProblemText, type ImportSummary } from "./import-dialog";
 import { UserDialog, type SaveOutcome } from "./user-dialog";
 import { UserList } from "./user-list";
 
 const PAGE_SIZE = 20;
+/** Problems of a refused import part listed in "couldn't be applied" (the others are counted). */
+const SHOWN_PROBLEMS = 3;
 
 type Filters = { q: string; role: Role | ""; page: number };
 type Snapshot<T> = { data: T; savedAt: number };
@@ -112,6 +119,8 @@ export function UsersManager({
   const [feedback, setFeedback] = useFeedback();
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [dialog, setDialog] = useState<DialogState>({ open: false, editing: null, draft: null, key: 0 });
+  const [importDialog, setImportDialog] = useState({ open: false, key: 0 });
+  const problemText = useImportProblemText();
   const [background, setBackground] = useState<PeriodicSyncState | null>(null);
 
   // The directory and the groups, saved on this device (stale-while-revalidate, readable offline).
@@ -134,6 +143,7 @@ export function UsersManager({
   const issues = useMemo(() => userChanges(records).filter((change) => change.record.rejected), [records]);
   const visible = useMemo(() => filterRows(rows, filters), [rows, filters]);
   const counts = useMemo(() => countByRole(rows), [rows]);
+  const existingEmails = useMemo(() => new Set(rows.map((row) => row.email.toLowerCase())), [rows]);
   const total = ROLES.reduce((sum, role) => sum + counts[role], 0);
   const pages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const page = Math.min(filters.page, pages);
@@ -180,7 +190,22 @@ export function UsersManager({
   const openDialog = (editing: UserRow | null, draft: UserInput | null = null) =>
     setDialog((current) => ({ open: true, editing, draft, key: current.key + 1 }));
 
-  const reason = (rejection: OutboxRejection) => errors.message(rejection);
+  /** Why a change was refused. An import part: its first problems; one of its accounts: its own (or held back). */
+  const reason = (rejection: OutboxRejection) => {
+    if (rejection.code === IMPORT_ROW_INVALID) {
+      const problems = (rejection.details as { problems?: ImportProblem[] } | undefined)?.problems ?? [];
+      return problems.map(problemText).join(" · ") || errors.message(rejection);
+    }
+    if (rejection.code === IMPORT_ROW_HELD) return t("import.held");
+    if (rejection.code === "IMPORT_INVALID") {
+      const problems = [...serverProblems(rejection.details)].flatMap(([line, list]) => list.map((problem) => ({ line, problem })));
+      if (problems.length === 0) return errors.message(rejection);
+      const listed = problems.slice(0, SHOWN_PROBLEMS).map(({ line, problem }) => t("import.problemAt", { line, problem: problemText(problem) }));
+      const more = problems.length > SHOWN_PROBLEMS ? [t("import.moreProblems", { count: problems.length - SHOWN_PROBLEMS })] : [];
+      return [...listed, ...more].join(" ");
+    }
+    return errors.message(rejection);
+  };
 
   const onSaved = (outcome: SaveOutcome, input: UserInput, editing: UserRow | null) => {
     const name = `${input.firstname} ${input.lastname}`;
@@ -207,8 +232,8 @@ export function UsersManager({
     }
   };
 
-  const undo = async (recordId: string) => {
-    await removeOutboxRecord(recordId);
+  const undo = async (row: UserRow) => {
+    await undoChange(row);
     setFeedback({ type: "info", message: t("undone") });
   };
   const discard = async (recordId: string) => {
@@ -220,6 +245,22 @@ export function UsersManager({
   const editChange = (change: UserChange) => {
     const row = rows.find((candidate) => candidate.id === change.info.userId) ?? null;
     openDialog(row, (change.record.body as UserInput | undefined) ?? null);
+  };
+
+  const onImported = (summary: ImportSummary) => {
+    if (summary.items.length > 0) {
+      directory.mutate((current) => summary.items.reduce<Directory | undefined>((list, user) => withUser(list, user), current));
+      void directory.refresh();
+    }
+    const parts = [
+      summary.sent > 0 ? t("import.sent", { count: summary.sent }) : "",
+      summary.queued > 0 ? t("import.queued", { count: summary.queued }) : "",
+      summary.refused > 0 ? t("import.refused", { count: summary.refused }) : "",
+    ].filter(Boolean);
+    if (parts.length === 0) return;
+    let type: "success" | "info" | "error" = summary.sent > 0 ? "success" : "info";
+    if (summary.refused > 0 || summary.failed > 0) type = "error";
+    setFeedback({ type, message: t("import.feedback", { name: summary.source, result: parts.join(" ") }) });
   };
 
   const csvLabels = {
@@ -234,14 +275,7 @@ export function UsersManager({
   // Built from the data on this device: works offline.
   const exportCsv = () => {
     const { content, name } = csvFile();
-    const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = name;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    downloadBlob(new Blob([content], { type: "text/csv;charset=utf-8" }), name);
     setFeedback({ type: "success", message: t("exported", { count: visible.length }) });
   };
   const shareCsv = async () => {
@@ -255,7 +289,13 @@ export function UsersManager({
 
   const savedAt = directory.savedAt;
   const saved = directory.data;
-  const changeLabel = (kind: ChangeKind, name: string) => t(`issues.${kind}`, { name });
+  const changeLabel = ({ info }: UserChange) => {
+    if (info.kind !== "import") return t(`issues.${info.kind}`, { name: info.name });
+    const count = info.count ?? 0;
+    return info.parts && info.parts > 1
+      ? t("issues.importPart", { name: info.name, count, part: info.part ?? 1, parts: info.parts })
+      : t("issues.import", { name: info.name, count });
+  };
 
   return (
     <>
@@ -263,10 +303,21 @@ export function UsersManager({
         title={t("title")}
         description={t("subtitle")}
         actions={
-          <Button className="w-full rounded-full sm:w-auto" onClick={() => openDialog(null)}>
-            <UserPlus className="h-4 w-4" aria-hidden="true" />
-            {t("add")}
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              className="flex-1 rounded-full sm:flex-none"
+              disabled={!saved}
+              onClick={() => setImportDialog((current) => ({ open: true, key: current.key + 1 }))}
+            >
+              <FileUp className="h-4 w-4" aria-hidden="true" />
+              {t("import.button")}
+            </Button>
+            <Button className="flex-1 rounded-full sm:flex-none" onClick={() => openDialog(null)}>
+              <UserPlus className="h-4 w-4" aria-hidden="true" />
+              {t("add")}
+            </Button>
+          </>
         }
       />
 
@@ -391,11 +442,11 @@ export function UsersManager({
                 className="flex flex-col gap-2 rounded-2xl bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 text-sm">
-                  <p className="font-medium">{changeLabel(change.info.kind, change.info.name)}</p>
+                  <p className="font-medium">{changeLabel(change)}</p>
                   {change.record.rejected && <p className="text-destructive">{reason(change.record.rejected)}</p>}
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  {change.info.kind !== "delete" && (
+                  {change.info.kind !== "delete" && change.info.kind !== "import" && (
                     <Button variant="outline" size="sm" className="flex-1 rounded-full sm:flex-none" onClick={() => editChange(change)}>
                       <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                       {t("edit")}
@@ -434,7 +485,7 @@ export function UsersManager({
             reason={reason}
             onEdit={(row) => openDialog(row)}
             onDelete={remove}
-            onUndo={(recordId) => void undo(recordId)}
+            onUndo={(row) => void undo(row)}
           />
           {pages > 1 && (
             <nav aria-label={tPagination("label")} className="flex items-center justify-between gap-3">
@@ -458,6 +509,14 @@ export function UsersManager({
         draft={dialog.draft}
         groups={groups}
         onSaved={onSaved}
+      />
+      <ImportDialog
+        key={`import-${importDialog.key}`}
+        open={importDialog.open}
+        onOpenChange={(open) => setImportDialog((current) => ({ ...current, open }))}
+        groups={groups}
+        existingEmails={existingEmails}
+        onImported={onImported}
       />
     </>
   );

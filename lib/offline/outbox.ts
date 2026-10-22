@@ -30,12 +30,14 @@ export type MutationRequest = {
   info?: Record<string, unknown>;
   /** Keep it (with `rejected`) when the API refuses it for good, instead of dropping it. */
   keepRejected?: boolean;
+  /** Also keep it (with `rejected`) when the API refuses it as soon as it is sent online (`failed` then has its `id`). */
+  keepRefused?: boolean;
 };
 
 export type MutationResult<T = unknown> =
   | { status: "sent"; data: T }
   | { status: "queued"; id: string }
-  | { status: "failed"; error: BffError };
+  | { status: "failed"; error: BffError; id?: string };
 
 type NavigatorWithLocks = Navigator & {
   locks?: { request<R>(name: string, callback: () => Promise<R>): Promise<R> };
@@ -137,7 +139,7 @@ export function outboxId(request: Pick<MutationRequest, "method" | "path" | "key
   return owner ? `${owner}|${request.key ?? `${request.method} ${request.path}`}` : null;
 }
 
-async function enqueue(request: MutationRequest): Promise<string | null> {
+async function enqueue(request: MutationRequest, rejected?: OutboxRejection): Promise<string | null> {
   const owner = getCurrentOwner();
   const id = outboxId(request);
   const db = await getDb();
@@ -151,7 +153,8 @@ async function enqueue(request: MutationRequest): Promise<string | null> {
     createdAt: Date.now(),
     ...(request.scope ? { scope: request.scope } : {}),
     ...(request.info ? { info: request.info } : {}),
-    ...(request.keepRejected ? { keepRejected: true } : {}),
+    ...(request.keepRejected || rejected ? { keepRejected: true } : {}),
+    ...(rejected ? { rejected } : {}),
   };
   try {
     await db.put("outbox", record);
@@ -160,7 +163,7 @@ async function enqueue(request: MutationRequest): Promise<string | null> {
   }
   await refreshPendingCount();
   notifyOutboxChanged();
-  void requestBackgroundSync();
+  if (!rejected) void requestBackgroundSync();
   return id;
 }
 
@@ -181,7 +184,12 @@ export async function queueMutation<T = unknown>(request: MutationRequest): Prom
       return { status: "sent", data };
     } catch (e) {
       const error = e instanceof BffError ? e : new BffError(0, "NETWORK_ERROR", "Can't reach the server.");
-      if (!error.isNetworkError) return { status: "failed", error };
+      if (!error.isNetworkError) {
+        // Refused at once: kept with the module's other refused changes when asked (not for 401/429: not final).
+        const final = error.status !== 401 && error.status !== 429;
+        const id = request.keepRefused && final ? await enqueue(request, rejectionOf(error)) : null;
+        return id ? { status: "failed", error, id } : { status: "failed", error };
+      }
       // Unreachable: fall through and keep it for later.
     }
   }
@@ -198,6 +206,28 @@ export async function removeOutboxRecord(id: string): Promise<void> {
     const record = await db?.get("outbox", id);
     if (!db || !record || record.owner !== owner) return;
     await db.delete("outbox", id);
+  } catch {
+    return;
+  }
+  await refreshPendingCount();
+  notifyOutboxChanged();
+}
+
+/**
+ * Rewrites a waiting or refused mutation of the current user in place, without sending it: `update` returns the
+ * new record (same id and owner), or null to drop it. Runs under the replay's lock, so never mid-send.
+ */
+export async function updateOutboxRecord(id: string, update: (record: OutboxRecord) => OutboxRecord | null): Promise<void> {
+  const owner = getCurrentOwner();
+  try {
+    await withLock(async () => {
+      const db = await getDb();
+      const record = await db?.get("outbox", id);
+      if (!db || !record || record.owner !== owner) return;
+      const next = update(record);
+      if (next) await db.put("outbox", { ...next, id: record.id, owner: record.owner });
+      else await db.delete("outbox", id);
+    });
   } catch {
     return;
   }

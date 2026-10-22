@@ -2,6 +2,7 @@
 // the outbox. Pure functions, shared by the users page and its tests.
 import type { OutboxRecord, OutboxRejection } from "@/lib/offline/db";
 import type { Group, Role, User, UserGroup } from "@/lib/types";
+import type { ImportBody, ImportField, ImportProblem } from "@/lib/users/import";
 
 /** Outbox scope of the module's mutations. */
 export const USERS_SCOPE = "users";
@@ -29,18 +30,33 @@ export type UserInput = {
   password?: string;
 };
 
-export type ChangeKind = "create" | "update" | "delete";
+export type ChangeKind = "create" | "update" | "delete" | "import";
 
-/** `info` of a users mutation in the outbox. */
-export type UserChangeInfo = { kind: ChangeKind; userId: string; name: string };
+/**
+ * `info` of a users mutation in the outbox. An import part (POST /users/import, see lib/users/import.ts) has
+ * `userId` = "local-<importId>", `name` = the file name, and its place among the parts of the file.
+ */
+export type UserChangeInfo = { kind: ChangeKind; userId: string; name: string; part?: number; parts?: number; count?: number };
+
+/** Refusal shown on one account of a refused import part: its own problems, or held back by the other rows. */
+export const IMPORT_ROW_INVALID = "IMPORT_ROW_INVALID";
+export const IMPORT_ROW_HELD = "IMPORT_ROW_HELD";
+
+/** What a waiting change does to a row (an account of an import part is a creation). */
+export type RowChange = Exclude<ChangeKind, "import">;
 
 export type RowState =
   | { kind: "synced" }
-  | { kind: "pending"; change: ChangeKind; recordId: string }
-  | { kind: "rejected"; change: ChangeKind; recordId: string; rejection: OutboxRejection };
+  | { kind: "pending"; change: RowChange; recordId: string }
+  | { kind: "rejected"; change: RowChange; recordId: string; rejection: OutboxRejection };
 
 /** A user as the page shows it: server data with the waiting change applied on top. */
-export type UserRow = User & { state: RowState; local: boolean };
+export type UserRow = User & {
+  state: RowState;
+  local: boolean;
+  /** Account of a waiting import part (`state.recordId`): its line in the file. */
+  importRow?: number;
+};
 
 /** A users mutation of the outbox, with what it is about. */
 export type UserChange = { record: OutboxRecord; info: UserChangeInfo };
@@ -51,7 +67,9 @@ export function userChanges(records: OutboxRecord[]): UserChange[] {
   return records.flatMap((record) => {
     const info = record.info as Partial<UserChangeInfo> | undefined;
     if (!info || !info.kind || typeof info.userId !== "string") return [];
-    return [{ record, info: { kind: info.kind, userId: info.userId, name: String(info.name ?? "") } }];
+    const { kind, userId, part, parts, count } = info;
+    const batch = typeof part === "number" && typeof parts === "number" && typeof count === "number" ? { part, parts, count } : {};
+    return [{ record, info: { kind, userId, name: String(info.name ?? ""), ...batch } }];
   });
 }
 
@@ -62,6 +80,22 @@ function groupRef(id: string | null | undefined, groups: Group[], current?: User
   if (!group) return current?.id === id ? current : null;
   return { id: group.id, name: group.name, level: group.level, academicYear: group.academicYear, program: group.program };
 }
+
+/** The problems of a 422 IMPORT_INVALID (`details.errors`), by line of the file. */
+export function serverProblems(details: unknown): Map<number, ImportProblem[]> {
+  const byRow = new Map<number, ImportProblem[]>();
+  const errors = (details as { errors?: unknown } | null | undefined)?.errors;
+  if (!Array.isArray(errors)) return byRow;
+  for (const error of errors as { row?: unknown; field?: unknown; code?: unknown }[]) {
+    if (typeof error?.row !== "number" || typeof error.code !== "string") continue;
+    const field = typeof error.field === "string" ? (error.field as ImportField) : null;
+    byRow.set(error.row, [...(byRow.get(error.row) ?? []), { field, code: error.code }]);
+  }
+  return byRow;
+}
+
+/** Id of an account of a waiting import part. */
+export const importRowId = (importUserId: string, row: number) => `${importUserId}-${row}`;
 
 const collator = new Intl.Collator("fr", { sensitivity: "base", numeric: true });
 
@@ -82,6 +116,40 @@ export function applyChanges(users: User[], records: OutboxRecord[], groups: Gro
   for (const change of userChanges(records)) {
     const { record, info } = change;
     const body = record.body as UserInput | undefined;
+
+    if (info.kind === "import") {
+      const users = (record.body as ImportBody | undefined)?.users;
+      if (!Array.isArray(users)) continue;
+      const at = new Date(record.createdAt).toISOString();
+      // A part refused for its rows: each account shows its own problems, or that it was held back by the others.
+      const problems = record.rejected?.code === "IMPORT_INVALID" ? serverProblems(record.rejected.details) : null;
+      for (const user of users) {
+        const own = problems?.get(user.row);
+        const rejection: OutboxRejection | undefined =
+          record.rejected && problems
+            ? { ...record.rejected, code: own ? IMPORT_ROW_INVALID : IMPORT_ROW_HELD, details: { problems: own ?? [] } }
+            : record.rejected;
+        const id = importRowId(info.userId, user.row);
+        rows.set(id, {
+          id,
+          firstname: user.firstname,
+          lastname: user.lastname,
+          email: user.email,
+          role: user.role,
+          twoFactorEnabled: false,
+          group: user.role === "STUDENT" ? groupRef(user.group, groups) : null,
+          createdAt: at,
+          updatedAt: at,
+          state: rejection
+            ? { kind: "rejected", change: "create", recordId: record.id, rejection }
+            : { kind: "pending", change: "create", recordId: record.id },
+          local: true,
+          importRow: user.row,
+        });
+      }
+      continue;
+    }
+
     const state: RowState = record.rejected
       ? { kind: "rejected", change: info.kind, recordId: record.id, rejection: record.rejected }
       : { kind: "pending", change: info.kind, recordId: record.id };
