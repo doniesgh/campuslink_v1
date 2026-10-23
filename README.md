@@ -297,9 +297,10 @@ Files: `app/(back)/dashboard/forum/`, `components/forum/`, `lib/forum/`; API: `b
 ## User management (offline-first)
 
 Files: `app/(back)/dashboard/admin/users/` (`page.tsx`, `users-manager.tsx`, `user-dialog.tsx`,
-`import-dialog.tsx`), `app/(back)/dashboard/account/` (`account-view.tsx`, `device-settings.tsx`, `actions.ts`),
-`lib/users/` (`directory.ts` and `import.ts`: pure functions, `mutations.ts`, `import-files.ts`), `lib/pwa/`; API:
-`/api/users`, `/api/users/directory`, `/api/users/import`, `/api/push`, `/api/notifications` (backend README).
+`import-dialog.tsx`, `import-assist-panel.tsx`), `app/(back)/dashboard/account/` (`account-view.tsx`,
+`device-settings.tsx`, `actions.ts`), `lib/users/` (`directory.ts`, `import.ts` and `import-assist.ts`: pure
+functions, `mutations.ts`, `import-files.ts`), `lib/pwa/`; API: `/api/users`, `/api/users/directory`,
+`/api/users/import`, `/api/users/import/assist`, `/api/push`, `/api/notifications` (backend README).
 
 **Users page (ADMIN).** The whole directory (`GET /bff/users/directory`, every account, at most 5000) is rendered
 on the server for the first paint, then kept on the device by `useOfflineQuery(["users", "directory"])` with the
@@ -330,7 +331,7 @@ export all run on that copy, so they work the same online and offline; the filte
 - "Import" (`import-dialog.tsx`): an Excel (`.xlsx`, first sheet) or CSV file (`,` `;` or tab, UTF-8 or the
   Windows-1252 of French Excel), read on the device with `read-excel-file`, so it works offline too. The title line
   (French or English: "Nom", "Prénom", "E-mail", "Rôle", "Groupe", "Mot de passe" / "Last name", …) can be any of
-  the first 10 lines; each line is checked like the server does (`parseImport()` in `lib/users/import.ts`: required
+  the first 12 lines; each line is checked like the server does (`parseImport()` in `lib/users/import.ts`: required
   names and email, email format, duplicates in the file, emails already in the directory, role by code or label,
   group by name or "name · program" — the most recent academic year —, students only, password ≥ 8 characters or
   generated: `Xxxx-xxxx-xxxx`). Online, a dry run (`POST /users/import { dryRun: true }`) adds what only the server
@@ -345,6 +346,16 @@ export all run on that copy, so they work the same online and offline; the filte
   every imported account's password; closing first asks once when passwords were generated). "Download the
   template" writes an `.xlsx` with the titles and a help sheet listing the groups. `.xlsx` files are written with
   `write-excel-file` (cells are text, never formulas).
+- Smart import (AI, online, only when the server has `OPENROUTER_API_KEY`: `GET /users/import/assist`): when the
+  columns of a file aren't found ("Read it with AI"), or some names, roles or groups couldn't be read ("Fix with
+  AI"), `assistRequest()` (`lib/users/import-assist.ts`) sends the first 12 lines (emails masked, password cells
+  replaced by `•••` — by position, since a password can look like a title) and the distinct values of short columns
+  to `POST /users/import/assist`. The answer says where the titles are, which column holds which field (or a single
+  full-name column, `splitFullName()`: words in capitals are the family name, particles such as "Ben", "El" go with
+  it) and what each role and group value means. `applyAssist()` rewrites the whole file that way (line numbers kept)
+  and it goes through `parseImport()` and the server's dry run like any file. "Read with AI" shows what was
+  understood (title line, columns, roles, groups, values not understood, the model) with "Undo". Nothing is imported
+  before the admin checks the lines; offline the button is disabled and the import works as without AI.
 - Privacy: an admin's device keeps the directory (names, emails, roles, groups) and, until it syncs, the initial
   password of an account created or imported offline. Everything is scoped to the account and wiped at logout or when the
   session ends (see "How authentication works").
@@ -438,6 +449,7 @@ directory `backend`), database on **MongoDB Atlas** (free M0).
 | `TRUST_PROXY` | `4`: Render's load balancer, Cloudflare (Render's edge), the Vercel function and the address it forwards; check below |
 | `STORAGE_DRIVER` | `gridfs` (no persistent disk) |
 | `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME` | Brevo key and verified sender |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | smart import (optional): an OpenRouter key (openrouter.ai/keys), a model with structured outputs (`anthropic/claude-haiku-5.5`) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | `npm run generate-vapid`, `mailto:<your email>` |
 
 | Vercel (web app) | Value |

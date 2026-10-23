@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, CircleAlert, CloudOff, Download, FileSpreadsheet, KeyRound, Loader2, RotateCcw, ShieldCheck, Smartphone, Upload } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { InlineFeedback } from "@/components/ui/feedback";
 import { todayKey } from "@/lib/datetime";
 import { useErrorFormatter } from "@/lib/i18n/client";
-import { useOnlineStatus } from "@/lib/offline";
+import { BffError, useOnlineStatus } from "@/lib/offline";
 import type { Group, Role, User } from "@/lib/types";
 import { groupLabel } from "@/lib/users/directory";
 import {
@@ -28,20 +28,33 @@ import {
   type ImportRow,
   type ImportUser,
 } from "@/lib/users/import";
+import { applyAssist, assistRequest, type AssistMapping } from "@/lib/users/import-assist";
 import { credentialsFile, downloadBlob, IMPORT_MAX_FILE_MB, ImportFileProblem, readImportFile, templateFile, XLSX_TYPE } from "@/lib/users/import-files";
-import { checkImport, importBatch } from "@/lib/users/mutations";
+import { assistImport, checkImport, getAssistStatus, importBatch, type AssistStatus } from "@/lib/users/mutations";
 import { cn } from "@/lib/utils";
 import { MIN_PASSWORD_LENGTH } from "@/lib/validation";
+import { AssistOffer, AssistSummary } from "./import-assist-panel";
 
 /** Lines listed in the preview (the others are counted). */
 const SHOWN_ROWS = 200;
 const ACCEPT = `.xlsx,.csv,${XLSX_TYPE},text/csv`;
 
+/** Problems the smart import may solve: names in one column, roles and groups written another way. */
+const isAssistable = (problem: ImportProblem) =>
+  problem.code === "INVALID_ROLE" || problem.code === "UNKNOWN_GROUP" || (problem.code === "REQUIRED" && (problem.field === "lastname" || problem.field === "firstname"));
+
 type Check = "checking" | "server" | "device";
-type Review = { source: string; rows: ImportRow[]; check: Check };
+/** The file as read: kept so the AI can read it, and its reading be undone. */
+type Loaded = { source: string; table: unknown[][] };
+type Assisted = { mapping: AssistMapping; model: string };
+type Review = { source: string; rows: ImportRow[]; check: Check; file: Loaded; assisted: Assisted | null };
 type Outcome = { sent: number; queued: number; refused: number; failed: number; reason: string | null };
+type Notice = { message: string; at: number };
+/** A message to show; `at` makes the same message announced again. */
+const notice = (message: string): Notice => ({ message, at: Date.now() });
 type Step =
-  | { kind: "pick"; reading: boolean; error: { message: string; at: number } | null }
+  /** `file`: read, but its columns weren't found (the AI may find them). */
+  | { kind: "pick"; reading: boolean; error: Notice | null; file: Loaded | null }
   | ({ kind: "review" } & Review)
   | ({ kind: "importing"; done: number; total: number } & Review)
   | ({ kind: "done"; imported: ImportUser[]; generated: number; outcome: Outcome } & Review);
@@ -110,17 +123,36 @@ export function ImportDialog({
 }>) {
   const t = useTranslations("admin.users.import");
   const tRoles = useTranslations("common.roles");
+  const locale = useLocale();
   const errors = useErrorFormatter();
   const online = useOnlineStatus();
   const problemText = useImportProblemText();
-  const [step, setStep] = useState<Step>({ kind: "pick", reading: false, error: null });
+  const [step, setStep] = useState<Step>({ kind: "pick", reading: false, error: null, file: null });
   const [onlyProblems, setOnlyProblems] = useState(false);
   const [skip, setSkip] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [closeWarning, setCloseWarning] = useState(false);
-  // The file being read: a later choice wins over a slower earlier one.
+  const [ai, setAi] = useState<AssistStatus | null>(null);
+  const [assisting, setAssisting] = useState(false);
+  const [aiError, setAiError] = useState<Notice | null>(null);
+  // The file being read (or analysed): a later choice wins over a slower earlier one.
   const readToken = useRef(0);
+
+  // Whether the server can read files with AI: asked once, when the dialog is first opened online.
+  useEffect(() => {
+    if (!open || !online || ai) return;
+    let cancelled = false;
+    getAssistStatus().then(
+      (status) => {
+        if (!cancelled) setAi(status);
+      },
+      () => undefined
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [open, online, ai]);
 
   const columns = Object.fromEntries(IMPORT_FIELDS.map((field) => [field, t(`columns.${field}`)])) as Record<ImportField, string>;
   const roleLabels = Object.fromEntries((["STUDENT", "TEACHER", "ADMIN", "ALUMNI"] as Role[]).map((role) => [role, tRoles(role)]));
@@ -130,11 +162,13 @@ export function ImportDialog({
     if (error.kind === "tooMany") return t("errors.tooMany", { count: error.count, max: error.max });
     return t("errors.empty");
   };
-  const pickError = (message: string): Step => ({ kind: "pick", reading: false, error: { message, at: Date.now() } });
+  const pickError = (message: string, file: Loaded | null = null): Step => ({ kind: "pick", reading: false, error: notice(message), file });
 
   const readFile = async (file: File) => {
     const token = ++readToken.current;
-    setStep({ kind: "pick", reading: true, error: null });
+    setAssisting(false);
+    setAiError(null);
+    setStep({ kind: "pick", reading: true, error: null, file: null });
     let table: unknown[][];
     try {
       table = await readImportFile(file);
@@ -143,18 +177,23 @@ export function ImportDialog({
       if (token === readToken.current) setStep(pickError(t(`errors.${kind}`, { max: IMPORT_MAX_FILE_MB })));
       return;
     }
-    if (token !== readToken.current) return;
+    if (token === readToken.current) await showFile({ source: file.name, table }, null, token);
+  };
 
-    const result = parseImport(table, { groups, existingEmails, roleLabels });
+  /** Checks the lines of a file (as the AI read it, when `assisted`) and shows them, then has the server check them. */
+  const showFile = async (file: Loaded, assisted: Assisted | null, token: number) => {
+    const prepared = assisted ? applyAssist(file.table, assisted.mapping) : { table: file.table, lineOffset: 0 };
+    const result = parseImport(prepared.table, { groups, existingEmails, roleLabels }, { lineOffset: prepared.lineOffset });
     if (!result.ok) {
-      setStep(pickError(parseErrorText(result.error)));
+      // Columns not found: the AI may find them (not again once it tried).
+      setStep(pickError(parseErrorText(result.error), result.error.kind === "missingColumns" && !assisted ? file : null));
       return;
     }
     setOnlyProblems(false);
     setSkip(false);
     const ready = result.rows.filter(isReady);
     const check: Check = online && ready.length > 0 ? "checking" : "device";
-    setStep({ kind: "review", source: file.name, rows: result.rows, check });
+    setStep({ kind: "review", source: file.source, rows: result.rows, check, file, assisted });
     if (check !== "checking") return;
 
     // The server knows the accounts and groups this device may not have yet.
@@ -170,6 +209,37 @@ export function ImportDialog({
         : current
     );
   };
+
+  /** Smart import: the AI tells how the file is laid out; the file is then read again that way. */
+  const runAssist = async (file: Loaded) => {
+    const token = ++readToken.current;
+    setAssisting(true);
+    setAiError(null);
+    try {
+      const answer = await assistImport(assistRequest(file.table, locale));
+      if (token !== readToken.current) return;
+      setAssisting(false);
+      await showFile(file, answer, token);
+    } catch (error) {
+      if (token !== readToken.current) return;
+      setAssisting(false);
+      if (!(error instanceof BffError)) setAiError(notice(errors.message({ code: "GENERIC" })));
+      else setAiError(notice(error.status === 0 ? t("ai.offline") : errors.message(error)));
+    }
+  };
+
+  const undoAssist = (file: Loaded) => {
+    setAiError(null);
+    void showFile(file, null, ++readToken.current);
+  };
+
+  const assistOffer = (file: Loaded, hint: string, action: string) =>
+    ai?.enabled && (
+      <div className="space-y-2">
+        <AssistOffer hint={hint} action={action} model={ai.model ?? "AI"} online={online} busy={assisting} onAssist={() => void runAssist(file)} />
+        <InlineFeedback feedback={aiError ? { type: "error", message: aiError.message, at: aiError.at } : null} />
+      </div>
+    );
 
   const runImport = async (review: Review) => {
     const ready = review.rows.filter(isReady);
@@ -291,6 +361,7 @@ export function ImportDialog({
               />
             </label>
             <InlineFeedback feedback={step.error ? { type: "error", message: step.error.message, at: step.error.at } : null} />
+            {step.file && assistOffer(step.file, t("ai.missingHint"), t("ai.analyse"))}
             <div className="space-y-1 text-sm text-muted-foreground">
               <p>{t("required", { columns: REQUIRED_FIELDS.map((field) => columns[field]).join(", ") })}</p>
               <p>{t("optional", { columns: IMPORT_FIELDS.filter((field) => !REQUIRED_FIELDS.includes(field)).map((field) => columns[field]).join(", ") })}</p>
@@ -392,6 +463,7 @@ export function ImportDialog({
     const generated = ready.filter((row) => row.generated).length;
     const shown = onlyProblems ? review.rows.filter((row) => !isReady(row)) : review.rows;
     const CheckIcon = review.check === "server" ? ShieldCheck : Smartphone;
+    const assistable = !review.assisted && review.rows.some((row) => row.problems.some(isAssistable));
 
     return (
       <div className="min-w-0 space-y-4">
@@ -399,6 +471,10 @@ export function ImportDialog({
           <FileSpreadsheet className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           <span className="truncate">{review.source}</span>
         </p>
+        {review.assisted && (
+          <AssistSummary mapping={review.assisted.mapping} model={review.assisted.model} groups={groups} onUndo={() => undoAssist(review.file)} />
+        )}
+        {assistable && assistOffer(review.file, t("ai.reviewHint"), t("ai.fix"))}
         <ul className="flex flex-wrap gap-2" data-testid="import-summary">
           <li>
             <Badge variant="neutral">{t("summary.rows", { count: review.rows.length })}</Badge>
@@ -452,7 +528,9 @@ export function ImportDialog({
             className="rounded-full"
             onClick={() => {
               readToken.current += 1;
-              setStep({ kind: "pick", reading: false, error: null });
+              setAssisting(false);
+              setAiError(null);
+              setStep({ kind: "pick", reading: false, error: null, file: null });
             }}
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />

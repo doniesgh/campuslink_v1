@@ -12,6 +12,7 @@ import {
 import type { User } from "@/lib/types";
 import { LOCAL_ID_PREFIX, USERS_SCOPE, type UserChangeInfo, type UserInput, type UserRow } from "@/lib/users/directory";
 import type { ImportBatchInfo, ImportBody, ImportUser } from "@/lib/users/import";
+import type { AssistMapping, AssistRequest } from "@/lib/users/import-assist";
 
 const nameOf = (input: Pick<UserInput, "firstname" | "lastname">) => `${input.firstname} ${input.lastname}`.trim();
 
@@ -149,4 +150,20 @@ export function importBatch(users: ImportUser[], meta: ImportBatchInfo): Promise
     keepRejected: true,
     keepRefused: true,
   });
+}
+
+// ---------------------------------------------------------------- smart import (AI, online only)
+
+const ASSIST_PATH = `${IMPORT_PATH}/assist`;
+
+/** Whether the server can analyse files with AI (OPENROUTER_API_KEY set), and with which model. */
+export type AssistStatus = { enabled: boolean; model: string | null };
+
+export function getAssistStatus(): Promise<AssistStatus> {
+  return bffFetch<AssistStatus>(ASSIST_PATH);
+}
+
+/** Asks the AI how a file is laid out (see lib/users/import-assist.ts). Throws BffError (AI_* codes, NETWORK_ERROR). */
+export function assistImport(request: AssistRequest): Promise<{ mapping: AssistMapping; model: string }> {
+  return bffFetch(ASSIST_PATH, { method: "POST", body: request });
 }

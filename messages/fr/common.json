@@ -134,6 +134,10 @@
     "TOO_MANY_FILES": "Il y a trop de fichiers.",
     "AUDIENCE_NOT_ALLOWED": "Tu ne peux pas envoyer à ce public.",
     "EMAIL_UNAVAILABLE": "La vérification en deux étapes n'est pas encore disponible : ce serveur ne peut pas envoyer d'e-mails.",
-    "IMPORT_TOO_LARGE": "50 comptes au plus par import."
+    "IMPORT_TOO_LARGE": "50 comptes au plus par import.",
+    "AI_DISABLED": "L'IA n'est pas configurée sur ce serveur.",
+    "AI_NO_CREDITS": "Le compte d'IA n'a plus de crédits.",
+    "AI_BUSY": "L'IA est occupée ou sa limite du jour est atteinte. Réessaie plus tard.",
+    "AI_FAILED": "L'IA n'a pas pu lire ce fichier. Réessaie, ou suis le modèle."
   }
 }

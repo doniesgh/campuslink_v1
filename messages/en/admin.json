@@ -182,7 +182,31 @@
         "passwordHint": "At least 8 characters. When empty, CampusLink generates one: download the sign-in details at the end of the import."
       },
       "groupsTitle": "Groups",
-      "yearTitle": "Academic year"
+      "yearTitle": "Academic year",
+      "ai": {
+        "analyse": "Read it with AI",
+        "fix": "Fix with AI",
+        "missingHint": "This file doesn't follow the template. The AI can work out which column is which.",
+        "reviewHint": "Some names, roles or groups couldn't be read. The AI can try to understand them.",
+        "privacy": "The first {lines} lines (emails and passwords masked) and the short lists of values such as roles and groups are sent to {model} through OpenRouter. Nothing is imported before you check the lines.",
+        "working": "Reading the file with AI…",
+        "offline": "The AI needs a connection.",
+        "title": "Read with AI",
+        "undo": "Undo",
+        "titleLine": "Column titles on line {line}",
+        "noTitle": "No line of column titles",
+        "column": "{field}: column {letter}",
+        "fullNameColumn": "Full name: column {letter} ({order})",
+        "order": {
+          "LAST_FIRST": "family name first",
+          "FIRST_LAST": "given name first"
+        },
+        "roles": "Roles: {list}",
+        "groups": "Groups: {list}",
+        "unknown": "Not understood: {list}",
+        "checkNames": "Check how the full names were split.",
+        "model": "Model: {model}"
+      }
     }
   },
   "academic": {

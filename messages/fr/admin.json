@@ -182,7 +182,31 @@
         "passwordHint": "Au moins 8 caractères. Si vide, CampusLink en génère un : télécharge les identifiants à la fin de l'import."
       },
       "groupsTitle": "Groupes",
-      "yearTitle": "Année universitaire"
+      "yearTitle": "Année universitaire",
+      "ai": {
+        "analyse": "Le lire avec l'IA",
+        "fix": "Corriger avec l'IA",
+        "missingHint": "Ce fichier ne suit pas le modèle. L'IA peut retrouver quelle colonne est laquelle.",
+        "reviewHint": "Certains noms, rôles ou groupes n'ont pas pu être lus. L'IA peut essayer de les comprendre.",
+        "privacy": "Les {lines} premières lignes (e-mails et mots de passe masqués) et les courtes listes de valeurs comme les rôles et les groupes sont envoyées à {model} via OpenRouter. Rien n'est importé avant que tu vérifies les lignes.",
+        "working": "Lecture du fichier par l'IA…",
+        "offline": "L'IA a besoin d'une connexion.",
+        "title": "Lu avec l'IA",
+        "undo": "Annuler",
+        "titleLine": "Titres des colonnes à la ligne {line}",
+        "noTitle": "Pas de ligne de titres",
+        "column": "{field} : colonne {letter}",
+        "fullNameColumn": "Nom complet : colonne {letter} ({order})",
+        "order": {
+          "LAST_FIRST": "nom de famille d'abord",
+          "FIRST_LAST": "prénom d'abord"
+        },
+        "roles": "Rôles : {list}",
+        "groups": "Groupes : {list}",
+        "unknown": "Non compris : {list}",
+        "checkNames": "Vérifie comment les noms complets ont été séparés.",
+        "model": "Modèle : {model}"
+      }
     }
   },
   "academic": {

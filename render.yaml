@@ -43,6 +43,11 @@ services:
         sync: false
       - key: MAIL_FROM_NAME
         value: CampusLink
+      # Smart import of users (AI through OpenRouter); off while the key is empty.
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: anthropic/claude-haiku-5.5
       - key: VAPID_PUBLIC_KEY
         sync: false
       - key: VAPID_PRIVATE_KEY

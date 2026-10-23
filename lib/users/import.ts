@@ -9,6 +9,8 @@ import { isValidEmail, MIN_PASSWORD_LENGTH } from "@/lib/validation";
 export const IMPORT_BATCH_SIZE = 25;
 /** Rows per file (the server checks at most 1000 rows in a dry run). */
 export const IMPORT_MAX_ROWS = 1000;
+/** Lines searched for the column titles (also what the smart import sends to the AI). */
+export const TITLE_LINES = 12;
 /** Same limit as the user model. */
 const NAME_MAX_LENGTH = 100;
 
@@ -187,9 +189,11 @@ export function generatePassword(random: (bytes: Uint8Array) => Uint8Array = (by
 
 /**
  * Group of a cell: its label ("4DS1 · DS"), or its name ("4DS1"). A name used in several academic years is the
- * most recent year's group; two groups of the same year and name can only be told apart by their label.
+ * most recent year's group; two groups of the same year and name can only be told apart by their label. The id of
+ * a group (what the smart import writes) is understood too.
  */
 function groupResolver(groups: Group[]): (text: string) => string | null {
+  const ids = new Set(groups.map((group) => group.id));
   const byKey = new Map<string, Group[]>();
   const add = (key: string, group: Group) => {
     if (!key) return;
@@ -202,6 +206,7 @@ function groupResolver(groups: Group[]): (text: string) => string | null {
     add(foldKey(group.name), group);
   }
   return (text) => {
+    if (ids.has(text)) return text;
     const candidates = byKey.get(foldKey(text)) ?? [];
     if (candidates.length === 0) return null;
     const latest = candidates.reduce((best, group) => (group.academicYear > best.academicYear ? group : best), candidates[0]);
@@ -228,14 +233,15 @@ export type ImportContext = {
 };
 
 /**
- * Reads the rows of a sheet: finds the title line (in the first 10 lines), then checks each account like the server
- * does. Empty lines are skipped; `row` is the line number in the file (1 = first line).
+ * Reads the rows of a sheet: finds the title line (in the first TITLE_LINES lines), then checks each account like the server
+ * does. Empty lines are skipped; `row` is the line number in the file (1 = first line), `lineOffset` lines further
+ * (-1 when a title line was added on top of the file, see applyAssist()).
  */
-export function parseImport(table: unknown[][], context: ImportContext): ImportParseResult {
+export function parseImport(table: unknown[][], context: ImportContext, { lineOffset = 0 }: { lineOffset?: number } = {}): ImportParseResult {
   const lines = table.map((cells) => cells.map(cellText));
   if (lines.every((cells) => cells.every((cell) => cell === ""))) return { ok: false, error: { kind: "empty" } };
-  // The title line: the one of the first 10 with the most titles understood (the first one on a tie).
-  const scores = lines.slice(0, 10).map((cells) => new Set(cells.map(headerField).filter(Boolean)).size);
+  // The title line: the one of the first lines with the most titles understood (the first one on a tie).
+  const scores = lines.slice(0, TITLE_LINES).map((cells) => new Set(cells.map(headerField).filter(Boolean)).size);
   const best = Math.max(0, ...scores);
   const headerIndex = best > 0 ? scores.indexOf(best) : -1;
 
@@ -249,7 +255,7 @@ export function parseImport(table: unknown[][], context: ImportContext): ImportP
   if (missing.length > 0) return { ok: false, error: { kind: "missingColumns", missing } };
 
   const body = lines
-    .map((cells, index) => ({ cells, line: index + 1 }))
+    .map((cells, index) => ({ cells, line: index + 1 + lineOffset }))
     .slice(headerIndex + 1)
     .filter(({ cells }) => cells.some((cell) => cell !== ""));
   if (body.length === 0) return { ok: false, error: { kind: "empty" } };

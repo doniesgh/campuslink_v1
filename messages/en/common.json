@@ -134,6 +134,10 @@
     "TOO_MANY_FILES": "Too many files.",
     "AUDIENCE_NOT_ALLOWED": "You can't send to this audience.",
     "EMAIL_UNAVAILABLE": "Two-step verification isn't available yet: this server can't send emails.",
-    "IMPORT_TOO_LARGE": "At most 50 accounts per import."
+    "IMPORT_TOO_LARGE": "At most 50 accounts per import.",
+    "AI_DISABLED": "The AI isn't set up on this server.",
+    "AI_NO_CREDITS": "The AI account has no credits left.",
+    "AI_BUSY": "The AI is busy or its daily limit is reached. Try again later.",
+    "AI_FAILED": "The AI couldn't read this file. Try again, or follow the template."
   }
 }
