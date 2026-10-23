@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, CircleAlert, CloudOff, Download, FileSpreadsheet, KeyRound, Loader2, RotateCcw, ShieldCheck, Smartphone, Upload } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox";
@@ -123,7 +123,6 @@ export function ImportDialog({
 }>) {
   const t = useTranslations("admin.users.import");
   const tRoles = useTranslations("common.roles");
-  const locale = useLocale();
   const errors = useErrorFormatter();
   const online = useOnlineStatus();
   const problemText = useImportProblemText();
@@ -216,7 +215,7 @@ export function ImportDialog({
     setAssisting(true);
     setAiError(null);
     try {
-      const answer = await assistImport(assistRequest(file.table, locale));
+      const answer = await assistImport(assistRequest(file.table));
       if (token !== readToken.current) return;
       setAssisting(false);
       await showFile(file, answer, token);

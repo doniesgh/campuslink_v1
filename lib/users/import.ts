@@ -192,7 +192,7 @@ export function generatePassword(random: (bytes: Uint8Array) => Uint8Array = (by
  * most recent year's group; two groups of the same year and name can only be told apart by their label. The id of
  * a group (what the smart import writes) is understood too.
  */
-function groupResolver(groups: Group[]): (text: string) => string | null {
+export function groupResolver(groups: Group[]): (text: string) => string | null {
   const ids = new Set(groups.map((group) => group.id));
   const byKey = new Map<string, Group[]>();
   const add = (key: string, group: Group) => {
@@ -215,7 +215,7 @@ function groupResolver(groups: Group[]): (text: string) => string | null {
   };
 }
 
-function roleResolver(roleLabels: Partial<Record<Role, string>>): (text: string) => Role | null {
+export function roleResolver(roleLabels: Partial<Record<Role, string>>): (text: string) => Role | null {
   const byKey = new Map<string, Role>();
   for (const role of ROLES) {
     for (const alias of [role, ...ROLE_ALIASES[role], roleLabels[role] ?? ""]) if (foldKey(alias)) byKey.set(foldKey(alias), role);

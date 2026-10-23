@@ -3,8 +3,9 @@
 import { Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import type { Group, Role } from "@/lib/types";
+import { ROLES, type Group, type Role } from "@/lib/types";
 import { groupLabel } from "@/lib/users/directory";
+import { groupResolver, roleResolver } from "@/lib/users/import";
 import { ASSIST_LINES, columnLetter, type AssistField, type AssistMapping } from "@/lib/users/import-assist";
 
 const FIELDS: AssistField[] = ["lastname", "firstname", "fullName", "email", "role", "group", "password"];
@@ -46,6 +47,9 @@ export function AssistSummary({
   const tColumns = useTranslations("admin.users.import.columns");
   const tRoles = useTranslations("common.roles");
   const { columns } = mapping;
+  // A value the AI left out may still be read by the usual rules ("4 DS 1" is 4DS1): only the others are listed.
+  const readRole = roleResolver(Object.fromEntries(ROLES.map((role) => [role, tRoles(role)])));
+  const readGroup = groupResolver(groups);
 
   const placed = FIELDS.flatMap((field) => {
     const column = columns[field];
@@ -53,12 +57,17 @@ export function AssistSummary({
     if (field === "fullName") return [t("fullNameColumn", { letter: columnLetter(column), order: t(`order.${mapping.nameOrder}`) })];
     return [t("column", { field: tColumns(field), letter: columnLetter(column) })];
   });
-  const roles = mapping.roles.flatMap(({ text, role }) => (role ? [`“${text}” → ${tRoles(role as Role)}`] : []));
+  const unknown: string[] = [];
+  const roles = mapping.roles.flatMap(({ text, role }) => {
+    const read = (role as Role | null) ?? readRole(text);
+    if (!read) unknown.push(`“${text}”`);
+    return read ? [`“${text}” → ${tRoles(read)}`] : [];
+  });
   const matched = mapping.groups.flatMap(({ text, groupId }) => {
-    const group = groups.find((candidate) => candidate.id === groupId);
+    const group = groups.find((candidate) => candidate.id === (groupId ?? readGroup(text)));
+    if (!group) unknown.push(`“${text}”`);
     return group ? [`“${text}” → ${groupLabel(group)}`] : [];
   });
-  const unknown = [...mapping.roles.filter((entry) => !entry.role), ...mapping.groups.filter((entry) => !entry.groupId)].map(({ text }) => `“${text}”`);
 
   return (
     <section data-testid="import-ai-summary" aria-labelledby="import-ai-title" className="space-y-2 rounded-2xl border border-primary/30 bg-primary/5 p-3 text-sm sm:p-4">
@@ -72,7 +81,6 @@ export function AssistSummary({
           {t("undo")}
         </Button>
       </div>
-      {mapping.notes && <p>{mapping.notes}</p>}
       <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
         <li>{mapping.headerRow > 0 ? t("titleLine", { line: mapping.headerRow }) : t("noTitle")}</li>
         {placed.length > 0 && <li>{placed.join(" · ")}</li>}

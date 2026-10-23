@@ -43,11 +43,14 @@ services:
         sync: false
       - key: MAIL_FROM_NAME
         value: CampusLink
-      # Smart import of users (AI through OpenRouter); off while the key is empty.
+      # Smart import of users (AI through OpenRouter); off while the key is empty. Free models, tried in this order;
+      # their providers may keep what is sent (the first 12 lines of a file, emails and passwords masked).
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_MODEL
-        value: anthropic/claude-haiku-5.5
+        value: nvidia/nemotron-3.5-lightning:free,google/gemma-4-31b-it:free
+      - key: OPENROUTER_ALLOW_DATA_COLLECTION
+        value: "true"
       - key: VAPID_PUBLIC_KEY
         sync: false
       - key: VAPID_PRIVATE_KEY

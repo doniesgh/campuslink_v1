@@ -8,7 +8,7 @@ const getImportAssist = (req, res) => {
   res.status(200).json({ enabled, model: enabled ? aiModel() : null });
 };
 
-// POST /api/users/import/assist [admin] { locale?, lines, values } → { mapping, model } (see service/importAssist.js).
+// POST /api/users/import/assist [admin] { lines, values } → { mapping, model } (see service/importAssist.js).
 // 503 AI_DISABLED / AI_NO_CREDITS, 429 AI_BUSY, 502 AI_FAILED when the AI service can't answer.
 const postImportAssist = async (req, res) => {
   const { mapping, model } = await assistImport(req.body ?? {});

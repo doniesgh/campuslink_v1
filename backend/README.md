@@ -54,7 +54,7 @@ logs/operations.log    request log of state-changing calls, secrets redacted (gi
 | `GET /api/users?q&role&page&limit`, `GET /stats`, `POST /`, `GET/PATCH/DELETE /:id` | ADMIN | user management |
 | `GET /api/users/directory` | ADMIN | `{ items, total, truncated }`: every user (at most 5000), by last name: the web app's offline copy |
 | `POST /api/users/import { importId, source?, dryRun?, users: [{ row, firstname, lastname, email, password, role?, group? }] }` | ADMIN | bulk creation, see "User model" |
-| `GET /api/users/import/assist`, `POST /api/users/import/assist { locale?, lines, values }` | ADMIN | smart import (AI), see "AI" |
+| `GET /api/users/import/assist`, `POST /api/users/import/assist { lines, values }` | ADMIN | smart import (AI), see "AI" |
 | `GET /api/academic/groups` | ADMIN | groups with `studentCount` |
 | `GET /api/notifications?page&limit&unread=true` | signed in | `{ items, total, page, limit, unreadCount }`, newest first |
 | `GET /api/notifications/unread-count` | signed in | `{ count }` |
@@ -212,19 +212,29 @@ Never throws (failures are logged); resolves to the entry or `null`. Recorded to
 ### AI — `service/aiService.js` + `service/importAssist.js`
 
 - `aiService.completeJson({ system, user, schemaName, schema })`: one call to OpenRouter's chat completions
-  (`OPENROUTER_API_KEY`, model `OPENROUTER_MODEL`, default `anthropic/claude-haiku-5.5`) with a strict JSON schema
-  (`response_format: json_schema`), `temperature: 0`, and `provider: { require_parameters: true, data_collection:
-  "deny" }`: only providers that support the schema and don't store or train on the data
-  (`OPENROUTER_ALLOW_DATA_COLLECTION=true` lifts the second rule, some free models need it). 45 s timeout. Errors:
-  `503 AI_DISABLED` (no key, key refused), `503 AI_NO_CREDITS` (OpenRouter 402), `429 AI_BUSY` (rate or daily
-  limit), `502 AI_FAILED` (unreachable, error, answer that isn't the expected JSON). `OPENROUTER_BASE_URL` points
-  it at a stand-in (tests).
+  (`OPENROUTER_API_KEY`; `OPENROUTER_MODEL`, default `anthropic/claude-haiku-5.5`, or several models separated by
+  commas: OpenRouter tries the next one when one is busy or down), `temperature: 0`. How the JSON is asked for
+  depends on what the models support (OpenRouter's public model list, read once): a strict JSON schema
+  (`response_format: json_schema`) when they support structured outputs, else JSON mode, else the schema written in
+  the instructions (the answer may then come in a code block: the JSON object is taken out of it). Reasoning models
+  are asked not to reason (`reasoning: { enabled: false }`: they otherwise think for 30 s or more and can spend all
+  their tokens). `provider.data_collection: "deny"`: only providers that don't store or train on the data
+  (`OPENROUTER_ALLOW_DATA_COLLECTION=true` lifts it: the free models need it). 50 s timeout. Errors: `503
+  AI_DISABLED` (no key, key refused), `503 AI_NO_CREDITS` (OpenRouter 402), `429 AI_BUSY` (rate or daily limit),
+  `502 AI_FAILED` (unreachable, too slow, error, answer that isn't JSON). `OPENROUTER_BASE_URL` points it at a
+  stand-in (tests).
+- Free models (October 2026, 50 requests a day without credits, 20 a minute): `nvidia/nemotron-3.5-lightning:free`
+  read the test files right in 3 to 6 s; others were slow (30 to 85 s), wrong, rate-limited by their provider or
+  broken. The setting used: `OPENROUTER_MODEL=nvidia/nemotron-3.5-lightning:free,google/gemma-4-31b-it:free` with
+  `OPENROUTER_ALLOW_DATA_COLLECTION=true` (the free providers may keep what is sent: the first 12 lines, masked).
 - Smart import, `POST /api/users/import/assist` (ADMIN, `RATE_LIMIT_AI_MAX` per admin and hour, default 30): the web
   app sends the first 12 lines of a file it couldn't read (emails masked as `i…@domain`, password cells as `•••`,
   15 cells of 80 characters at most; the server masks emails again) and the distinct values of short columns. The
   model answers where the titles are, which column holds which field (or one full-name column, with the name order)
   and what each role and group value means, as group ids of the list it is given. `sanitize()` keeps only columns
-  that exist (each used once), roles of the list, groups that exist and values that were sent; the answer is
+  that exist (each used once), roles of the list, groups that exist and values that were sent (not a column's
+  title), and sets right what small models often miss: a "last name" column whose cells hold two words or more is a
+  full name, the column of `•••` cells is the password column. No free text of the model is kept. The answer is
   `{ mapping, model }`, audited as `user.import.assist` (model, number of lines, columns; no file content). The
   model never creates anything: the web app applies the mapping and checks every line, then `POST /import` as usual.
   `GET /api/users/import/assist` → `{ enabled, model }`.

@@ -449,7 +449,7 @@ directory `backend`), database on **MongoDB Atlas** (free M0).
 | `TRUST_PROXY` | `4`: Render's load balancer, Cloudflare (Render's edge), the Vercel function and the address it forwards; check below |
 | `STORAGE_DRIVER` | `gridfs` (no persistent disk) |
 | `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME` | Brevo key and verified sender |
-| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | smart import (optional): an OpenRouter key (openrouter.ai/keys), a model with structured outputs (`anthropic/claude-haiku-5.5`) |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `OPENROUTER_ALLOW_DATA_COLLECTION` | smart import (optional): an OpenRouter key (openrouter.ai/keys); free: `nvidia/nemotron-3.5-lightning:free,google/gemma-4-31b-it:free` and `true` |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | `npm run generate-vapid`, `mailto:<your email>` |
 
 | Vercel (web app) | Value |

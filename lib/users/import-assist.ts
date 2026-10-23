@@ -25,11 +25,9 @@ export type AssistMapping = {
   nameOrder: NameOrder;
   roles: { text: string; role: Role | null }[];
   groups: { text: string; groupId: string | null }[];
-  /** A sentence or two for the admin, in their language. */
-  notes: string;
 };
 
-export type AssistRequest = { locale: string; lines: string[][]; values: { column: number; values: string[] }[] };
+export type AssistRequest = { lines: string[][]; values: { column: number; values: string[] }[] };
 
 /** "ines.benali@esprit.tn" → "i…@esprit.tn": enough to see an email column, not whose it is. */
 const maskEmail = (value: string) => value.replace(/[^\s@,;<>"']+@([^\s@,;<>"']+)/g, (match, domain: string) => `${match[0]}…@${domain}`);
@@ -52,7 +50,7 @@ function passwordColumns(lines: string[][]): Map<number, number> {
  * What the AI gets: the first lines of the file (emails masked, password cells replaced by "•••") and, for each
  * column with few different values (roles, groups...), all of them. Names and emails of the other lines stay here.
  */
-export function assistRequest(table: unknown[][], locale: string): AssistRequest {
+export function assistRequest(table: unknown[][]): AssistRequest {
   const all = table.map((cells) => cells.slice(0, ASSIST_COLUMNS).map((cell) => cellText(cell).slice(0, ASSIST_CELL_LENGTH)));
   const secret = passwordColumns(all);
   // By position, not by look: a password such as "Secret-123" or "Password1" looks like a title.
@@ -71,7 +69,7 @@ export function assistRequest(table: unknown[][], locale: string): AssistRequest
     if (distinct.length === 0 || distinct.length > limit || distinct.some((value) => value.includes("@"))) continue;
     values.push({ column, values: distinct });
   }
-  return { locale, lines, values };
+  return { lines, values };
 }
 
 /** Particles that belong to the family name: "Ben Ali", "El Amri", "De la Fontaine". */
