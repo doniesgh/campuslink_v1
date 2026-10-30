@@ -39,7 +39,10 @@ app.use(logger);
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
-
+app.use('/api', require('./routes/forumRoutes'));
+// app.js
+app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+app.use('/api/opportunities', require('./routes/opportunityRoutes'));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', forumRoutes);

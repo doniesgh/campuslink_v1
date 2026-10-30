@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="campuslink_v1">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/components.zip!/" />
+      <root url="jar://$PROJECT_DIR$/app.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

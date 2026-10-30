@@ -58,3 +58,86 @@
 2026-10-22T10:21:08.851Z - PATCH /api/users/me 200 - user: 6ad8db8a3c123451261040ea - ip: ::1 - Body: {"twoFactorEnabled":true}
 2026-10-22T10:21:09.718Z - PATCH /api/users/me 200 - user: 6ad8db8a3c123451261040ea - ip: ::1 - Body: {"twoFactorEnabled":false}
 2026-10-22T10:33:16.553Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T23:17:59.160Z - POST /api/auth/signup 201 - user: - - ip: ::1 - Body: {"firstname":"Emna","lastname":"Abida","email":"emna5722@gmail.com","password":"[REDACTED]","locale":"fr"}
+2026-10-22T23:33:10.234Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-22T23:47:46.294Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T00:02:44.969Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T00:04:03.331Z - POST /api/auth/logout 204 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T00:06:28.439Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna5722@gmail.com","password":"[REDACTED]"}
+2026-10-23T00:21:50.301Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T00:24:08.863Z - POST /api/auth/logout 204 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T00:24:51.350Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna5722@gmail.com","password":"[REDACTED]"}
+2026-10-23T00:39:25.252Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T00:40:52.192Z - POST /api/opportunities 401 - user: - - ip: ::1 - Body: {"title":"test nom annonce","type":"emploi","domain":"Réseaux","location":"Tunis","description":"description"}
+2026-10-23T00:44:57.418Z - POST /api/opportunities 401 - user: - - ip: ::1 - Body: {"title":"Offre emploi à XYZ ","type":"emploi","domain":"Réseaux","location":"Tunis","description":"desc"}
+2026-10-23T00:45:51.215Z - POST /api/opportunities 401 - user: - - ip: ::1 - Body: {"title":"abc","type":"stage","domain":"ifeiofee","location":"ijoeijoo","description":"rfierioeioreioefijofeijoer"}
+2026-10-23T00:49:32.504Z - POST /api/auth/logout 204 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T00:49:50.403Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna5722@gmail.com","password":"[REDACTED]"}
+2026-10-23T00:51:02.698Z - POST /api/opportunities 401 - user: - - ip: ::1 - Body: {"title":"ddcdc","type":"pfe","domain":"yuguyg","location":"uyguyg","description":"uuyguy"}
+2026-10-23T00:53:53.187Z - POST /api/opportunities 400 - user: - - ip: ::1 - Body: {"title":"avv","type":"stage","domain":"ijrfijrfijre","location":"ijoreijreijreijre","description":"ijoijofejifrjoiojer"}
+2026-10-23T00:56:28.228Z - POST /api/opportunities 201 - user: - - ip: ::1 - Body: {"title":"tesst","type":"pfe","domain":"juireijreiijre","location":"koorekorokrf","description":"ijrfrirfiur"}
+2026-10-23T00:57:39.459Z - POST /api/opportunities 201 - user: - - ip: ::1 - Body: {"title":"Offre d'emploi XYZ","type":"emploi","domain":"Réseau","location":"Tunis","description":"Nous recherchons un(e) technicien(ne) réseau en Tunisie, motivé(e) et dynamique, pour assurer l’installation, la configuration et la maintenance des équipements réseau.\nLe candidat participera à la gestion des infrastructures, au diagnostic des incidents et à la résolution des problèmes techniques.\nProfil recherché : formation en informatique ou réseaux, connaissances en TCP/IP et sens de l’organisation."}
+2026-10-23T01:01:04.546Z - PUT /api/opportunities/6adab1035a1c84a250f9ebdc 200 - user: - - ip: ::1 - Body: {"title":"Offre d'emploi XYZ modification ","type":"emploi","domain":"Réseau","location":"Tunis","description":"Nous recherchons un(e) technicien(ne) réseau en Tunisie, motivé(e) et dynamique, pour assurer l’installation, la configuration et la maintenance des équipements réseau.\nLe candidat participera à la gestion des infrastructures, au diagnostic des incidents et à la résolution des problèmes techniques.\nProfil recherché : formation en informatique ou réseaux, connaissances en TCP/IP et sens de l’organisation."}
+2026-10-23T10:52:23.437Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T10:52:55.462Z - DELETE /api/opportunities/6adab0bc5a1c84a250f9ebdb 200 - user: - - ip: ::1 - Body: 
+2026-10-23T10:53:12.489Z - PUT /api/opportunities/6adab1035a1c84a250f9ebdc 200 - user: - - ip: ::1 - Body: {"title":"Offre d'emploi XYZ modification ","type":"emploi","domain":"Réseau","location":"Tunis","description":"Nous recherchons un(e) technicien(ne) réseau en Tunisie, motivé(e) et dynamique, pour assurer l’installation, la configuration et la maintenance des équipements réseau.\nLe candidat participera à la gestion des infrastructures, au diagnostic des incidents et à la résolution des problèmes techniques.\nProfil recherché : formation en informatique ou réseaux, connaissances en TCP/IP et sens de l’organisation."}
+2026-10-23T10:56:17.310Z - POST /api/opportunities 201 - user: - - ip: ::1 - Body: {"title":"Technicien Réseau","type":"emploi","domain":"IT","location":"Tunis","description":"Installation, configuration et maintenance des réseaux informatiques."}
+2026-10-23T10:57:00.331Z - POST /api/opportunities 201 - user: - - ip: ::1 - Body: {"title":"Développeur Full Stack","type":"alternance","domain":"Informatique","location":"Ariana","description":"Développement d’applications web avec React, Node.js et bases de données."}
+2026-10-23T10:57:03.208Z - POST /api/opportunities/6adb3d7c5a1c84a250f9ebde/apply 201 - user: - - ip: ::1 - Body: {}
+2026-10-23T10:57:33.502Z - PUT /api/opportunities/6adb3d7c5a1c84a250f9ebde 200 - user: - - ip: ::1 - Body: {"title":"Développeur Full Stack","type":"alternance","domain":"Informatique","location":"Ariana","description":"Développement d’applications web avec React, Node.js et bases de données.(modifié)"}
+2026-10-23T10:57:45.556Z - DELETE /api/opportunities/6adab1035a1c84a250f9ebdc 200 - user: - - ip: ::1 - Body: 
+2026-10-23T10:58:08.542Z - POST /api/opportunities 201 - user: - - ip: ::1 - Body: {"title":"technicien(ne) réseau ","type":"emploi","domain":"Réseaux","location":"Tunis","description":"Nous recherchons un(e) technicien(ne) réseau en Tunisie, motivé(e) et dynamique, pour assurer l’installation, la configuration et la maintenance des équipements réseau. Le candidat participera à la gestion des infrastructures, au diagnostic des incidents et à la résolution des problèmes techniques. Profil recherché : formation en informatique ou réseaux, connaissances en TCP/IP et sens de l’organisation."}
+2026-10-23T10:59:35.705Z - POST /api/opportunities 201 - user: - - ip: ::1 - Body: {"title":"Ingénieur DevOps chez Iliade","type":"stage","domain":"IT","location":"LAC.1","description":"Automatisation des déploiements, gestion des pipelines CI/CD et maintenance des environnements."}
+2026-10-23T11:03:10.795Z - POST /api/opportunities/6adb3dc05a1c84a250f9ebe0/apply 201 - user: - - ip: ::1 - Body: {}
+2026-10-23T11:07:02.061Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T11:23:50.664Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T11:23:58.321Z - POST /api/opportunities/6adb3e175a1c84a250f9ebe1/apply 201 - user: - - ip: ::1 - Body: {}
+2026-10-23T11:26:16.039Z - POST /api/opportunities 201 - user: - - ip: ::1 - Body: {"title":"Stage PFE","type":"stage","domain":"IT","location":"Tunis","description":"description..."}
+2026-10-23T11:26:31.479Z - PUT /api/opportunities/6adb445808c16016c7b17859 200 - user: - - ip: ::1 - Body: {"title":"Stage PFE","type":"stage","domain":"IT","location":"Tunis","description":"description...(modifié)"}
+2026-10-23T11:26:39.210Z - POST /api/opportunities/6adb445808c16016c7b17859/apply 201 - user: - - ip: ::1 - Body: {}
+2026-10-23T11:28:15.884Z - POST /api/posts 201 - user: 6ada99a7c59a908037bad807 - ip: ::1 - Body: {"type":"experience","title":"Experience","description":"desc","tags":["test"],"location":"Tunis"}
+2026-10-23T11:28:41.578Z - PATCH /api/posts/6adb44cf08c16016c7b1785b/status 200 - user: 6ada99a7c59a908037bad807 - ip: ::1 - Body: {"status":"resolved"}
+2026-10-23T11:28:51.058Z - PATCH /api/posts/6adb44cf08c16016c7b1785b/status 200 - user: 6ada99a7c59a908037bad807 - ip: ::1 - Body: {"status":"active"}
+2026-10-23T11:39:04.674Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T13:51:18.258Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T15:22:29.266Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-23T15:25:35.753Z - POST /api/opportunities 201 - user: - - ip: ::1 - Body: {"title":"test","type":"emploi","domain":"IT","location":"tUNISDESC","description":"DESC"}
+2026-10-23T15:25:48.649Z - POST /api/opportunities/6adb7c6f27ae9c50d96486ab/apply 201 - user: - - ip: ::1 - Body: {}
+2026-10-24T08:13:00.777Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-29T18:57:25.534Z - POST /api/auth/login 401 - user: - - ip: ::1 - Body: {"email":"emna5722@gmail.com","password":"[REDACTED]"}
+2026-10-29T18:57:32.250Z - POST /api/auth/login 401 - user: - - ip: ::1 - Body: {"email":"emna5722@gmail.com","password":"[REDACTED]"}
+2026-10-29T18:57:46.897Z - POST /api/auth/login 401 - user: - - ip: ::1 - Body: {"email":"emna5722@gmail.com","password":"[REDACTED]"}
+2026-10-29T18:58:21.895Z - POST /api/auth/signup 201 - user: - - ip: ::1 - Body: {"firstname":"emna","lastname":"abida","email":"emna@gmail.com","password":"[REDACTED]","locale":"fr"}
+2026-10-29T18:58:34.709Z - POST /api/opportunities/6adb7c6f27ae9c50d96486ab/apply 201 - user: - - ip: ::1 - Body: {}
+2026-10-29T19:13:46.494Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-29T19:28:38.288Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-29T19:30:30.205Z - POST /api/opportunities/6adb3d515a1c84a250f9ebdd/apply 201 - user: - - ip: ::1 - Body: {"coverLetter":"test"}
+2026-10-29T19:36:20.637Z - PATCH /api/opportunities/applications/6ae39ed6f71988d0b7245abb/status 200 - user: - - ip: ::1 - Body: {"status":"acceptee"}
+2026-10-29T19:36:25.299Z - PATCH /api/opportunities/applications/6ae3975a7b22ff962b8d8a0f/status 200 - user: - - ip: ::1 - Body: {"status":"refusee"}
+2026-10-29T19:36:29.476Z - PATCH /api/opportunities/applications/6adb7c7c27ae9c50d96486ac/status 200 - user: - - ip: ::1 - Body: {"status":"en_cours"}
+2026-10-29T19:36:31.824Z - PATCH /api/opportunities/applications/6adb446f08c16016c7b1785a/status 200 - user: - - ip: ::1 - Body: {"status":"en_cours"}
+2026-10-29T19:36:33.464Z - PATCH /api/opportunities/applications/6adb43ce08c16016c7b17858/status 200 - user: - - ip: ::1 - Body: {"status":"en_cours"}
+2026-10-29T19:36:35.468Z - PATCH /api/opportunities/applications/6adb3eee5a1c84a250f9ebe2/status 200 - user: - - ip: ::1 - Body: {"status":"en_cours"}
+2026-10-29T19:37:45.556Z - POST /api/opportunities/6adb7c6f27ae9c50d96486ab/apply 201 - user: - - ip: ::1 - Body: {}
+2026-10-29T19:41:02.278Z - DELETE /api/opportunities/6adb7c6f27ae9c50d96486ab 200 - user: - - ip: ::1 - Body: 
+2026-10-29T19:44:38.261Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-29T21:21:03.762Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-29T21:21:41.553Z - POST /api/opportunities 201 - user: - - ip: ::1 - Body: {"title":"test ajout","type":"emploi","domain":"IT","location":"Tunis","description":"fr"}
+2026-10-29T21:21:49.522Z - PUT /api/opportunities/6ae3b8e5f71988d0b7245abd 200 - user: - - ip: ::1 - Body: {"title":"test ajout","type":"emploi","domain":"IT","location":"Tunis","description":"fr modif"}
+2026-10-29T21:22:13.020Z - PATCH /api/opportunities/applications/6adb3eee5a1c84a250f9ebe2/status 200 - user: - - ip: ::1 - Body: {"status":"acceptee"}
+2026-10-29T21:22:14.571Z - PATCH /api/opportunities/applications/6adb3eee5a1c84a250f9ebe2/status 200 - user: - - ip: ::1 - Body: {"status":"refusee"}
+2026-10-29T21:22:15.671Z - PATCH /api/opportunities/applications/6adb3eee5a1c84a250f9ebe2/status 200 - user: - - ip: ::1 - Body: {"status":"en_cours"}
+2026-10-29T21:36:49.881Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-29T21:52:35.210Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-29T22:07:50.483Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-29T22:08:22.031Z - POST /api/auth/refresh 401 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-29T22:08:47.415Z - POST /api/auth/login 401 - user: - - ip: ::1 - Body: {"email":"emna5722@gmail.com","password":"[REDACTED]"}
+2026-10-29T22:08:52.537Z - POST /api/auth/login 401 - user: - - ip: ::1 - Body: {"email":"emna5722@gmail.com","password":"[REDACTED]"}
+2026-10-29T22:09:20.351Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna@gmail.com","password":"[REDACTED]"}
+2026-10-29T22:11:10.996Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna@gmail.com","password":"[REDACTED]"}
+2026-10-30T08:03:54.730Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna@gmail.com","password":"[REDACTED]"}
+2026-10-30T08:19:27.891Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna@gmail.com","password":"[REDACTED]"}
+2026-10-30T08:22:58.504Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna@gmail.com","password":"[REDACTED]"}
+2026-10-30T08:37:31.494Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-30T08:45:47.981Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna@gmail.com","password":"[REDACTED]"}
+2026-10-30T09:00:26.015Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}

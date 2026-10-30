@@ -144,8 +144,7 @@ function UserCard({ user }: { user: ShellUser }) {
         <p className="truncate text-sm font-semibold text-foreground">
           {user.firstname} {user.lastname}
         </p>
-        <p className="truncate text-xs text-muted-foreground">{t(user.role)}</p>
-      </div>
+<p className="truncate text-xs text-muted-foreground">{user.role}</p>      </div>
     </div>
   );
 }
