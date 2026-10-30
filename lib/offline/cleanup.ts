@@ -3,6 +3,8 @@ import { DB_NAME, destroyDb, getDb } from "@/lib/offline/db";
 import { setCurrentOwner } from "@/lib/offline/owner";
 import { resetQueryMemory } from "@/lib/offline/query";
 import { setPendingCount } from "@/lib/offline/status";
+import { clearAppBadge } from "@/lib/pwa/badge";
+import { disableAllPeriodicSyncs } from "@/lib/pwa/periodic-sync";
 
 /** Keep in sync with public/sw.js: "campuslink-pages-<version>" holds the saved pages, each labelled with its owner. */
 const PAGES_CACHE_PREFIX = "campuslink-pages";
@@ -49,13 +51,16 @@ async function clearCacheStorage(): Promise<void> {
 }
 
 /**
- * Clears IndexedDB (cache + outbox), Cache Storage and this device's push subscription.
+ * Clears IndexedDB (cache + outbox), Cache Storage, this device's push subscription, the periodic background
+ * syncs and the app icon badge.
  * `server: false` skips the backend call that unregisters the push subscription (no session anymore).
  * Bounded by `timeoutMs` so logout never hangs; never throws.
  */
 export async function clearOfflineData(timeoutMs = 3_000, { server = true }: { server?: boolean } = {}): Promise<void> {
   const work = (async () => {
     await removePushSubscription({ server }).catch(() => undefined);
+    await disableAllPeriodicSyncs();
+    await clearAppBadge();
     await clearCacheStorage().catch(() => undefined);
     await destroyDb();
   })();

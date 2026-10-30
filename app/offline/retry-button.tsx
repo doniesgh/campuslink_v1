@@ -1,6 +1,7 @@
 "use client";
-import { Button } from "@/components/ui/ButtonForm";
+
 import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /** Reloads the page the user wanted (the service worker served /offline in its place). */
 export function RetryButton({ label }: { label: string }) {

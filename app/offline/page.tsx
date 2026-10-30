@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CalendarDays, CloudOff, House, Megaphone } from "lucide-react";
+import { Bell, CloudOff, House, MessagesSquare } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import Logo from "@/components/ui/logo";
 import { RetryButton } from "./retry-button";
@@ -16,9 +16,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function OfflinePage() {
   const t = await getTranslations("offline.page");
   const views = [
-    { href: "/dashboard/timetable", label: t("timetable"), icon: CalendarDays },
-    { href: "/dashboard/announcements", label: t("announcements"), icon: Megaphone },
     { href: "/dashboard", label: t("home"), icon: House },
+    { href: "/dashboard/forum", label: t("forum"), icon: MessagesSquare },
+    { href: "/dashboard/notifications", label: t("notifications"), icon: Bell },
   ];
 
   return (

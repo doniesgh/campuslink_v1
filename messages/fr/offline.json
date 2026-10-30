@@ -9,9 +9,9 @@
     "title": "Tu es hors ligne",
     "description": "CampusLink n'arrive pas à joindre le réseau pour le moment. Les pages que tu as déjà ouvertes restent disponibles, avec les données enregistrées sur cet appareil.",
     "savedViews": "Vues enregistrées",
-    "timetable": "Mon emploi du temps",
-    "announcements": "Annonces",
     "home": "Accueil",
+    "forum": "Forum",
+    "notifications": "Notifications",
     "retry": "Réessayer",
     "tip": "Tes modifications restent sur cet appareil et partent dès que tu es reconnecté."
   }

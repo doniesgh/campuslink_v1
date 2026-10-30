@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect } from "react";
 import { adoptOwner } from "@/lib/offline/cleanup";
-import { refreshPendingCount, replayOutbox } from "@/lib/offline/outbox";
+import { notifyOutboxChanged, refreshPendingCount, replayOutbox } from "@/lib/offline/outbox";
 import { DataOwnerContext, setCurrentOwner } from "@/lib/offline/owner";
 import { resyncPushSubscription } from "@/lib/offline/push";
 import { invalidateQueries } from "@/lib/offline/query";
@@ -25,7 +25,8 @@ function claimPushResync(userId: string): boolean {
 /**
  * Wraps the dashboard: scopes the offline data (IndexedDB) to the signed-in user, keeps the
  * pending-sync count up to date and replays the outbox when the connection comes back.
- * Messages from the service worker: OUTBOX_CHANGED (Background Sync replayed items), PUSH_RECEIVED.
+ * Messages from the service worker: OUTBOX_CHANGED (Background Sync replayed or refused items), PUSH_RECEIVED,
+ * CACHE_UPDATED (Periodic Background Sync saved fresh data for a query key).
  */
 export function DataLayerProvider({ userId, children }: Readonly<{ userId: string; children: React.ReactNode }>) {
   // Layout effects run before the children's effects: queries and mutations see the owner.
@@ -52,9 +53,14 @@ export function DataLayerProvider({ userId, children }: Readonly<{ userId: strin
       const type = (event.data as { type?: unknown } | null)?.type;
       if (type === "OUTBOX_CHANGED") {
         void refreshPendingCount();
+        notifyOutboxChanged();
         invalidateQueries();
       } else if (type === "PUSH_RECEIVED") {
         invalidateQueries("notifications");
+      } else if (type === "CACHE_UPDATED") {
+        // Periodic Background Sync refreshed saved data (e.g. the users directory) while no page was open.
+        const key = (event.data as { key?: unknown }).key;
+        if (typeof key === "string") invalidateQueries(key);
       }
     };
     navigator.serviceWorker?.addEventListener("message", onMessage);

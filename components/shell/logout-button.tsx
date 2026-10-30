@@ -4,7 +4,7 @@ import { useFormStatus } from "react-dom";
 import { Loader2, LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { logoutAction } from "@/app/actions/auth";
-import { Button } from "@/components/ui/ButtonForm";
+import { Button } from "@/components/ui/button";
 import { clearOfflineData } from "@/lib/offline/cleanup";
 import { cn } from "@/lib/utils";
 

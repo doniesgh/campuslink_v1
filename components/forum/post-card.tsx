@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { bff, errorMessage } from "@/lib/forum/bff";
-import { authorName, fmtDate, initials, timeAgo } from "@/lib/forum/format";
+import { authorName, canManage, fmtDate, initials, timeAgo } from "@/lib/forum/format";
 import { S } from "@/lib/forum/strings";
-import type { Post, PostStatus } from "@/lib/forum/types";
+import type { Post, PostStatus, Viewer } from "@/lib/forum/types";
 import { btnDanger, btnSm } from "@/lib/forum/ui";
 import { StatusBadge, TypeBadge } from "./badges";
 import { CommentsThread } from "./comments-thread";
@@ -15,6 +15,7 @@ import { PostMedia } from "./post-media";
 
 interface Props {
   post: Post;
+  viewer: Viewer | null;
   detail?: boolean;
   onChange: (post: Post) => void;
   onDeleted: (id: string) => void;
@@ -23,7 +24,7 @@ interface Props {
 type Icon = ComponentType<{ className?: string }>;
 const menuItem = "flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground";
 
-export function PostCard({ post, detail = false, onChange, onDeleted }: Props) {
+export function PostCard({ post, viewer, detail = false, onChange, onDeleted }: Props) {
   const base = usePathname();
   const [menu, setMenu] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -81,7 +82,8 @@ export function PostCard({ post, detail = false, onChange, onDeleted }: Props) {
     }
   }
 
-  const name = authorName(post);
+  const name = authorName(post.author);
+  const manageable = canManage(viewer, post.author);
   const long = post.description.length > 180;
   const item = (Ic: Icon, text: string, tone: "soft" | "danger" = "soft") => (
     <>
@@ -91,7 +93,8 @@ export function PostCard({ post, detail = false, onChange, onDeleted }: Props) {
   );
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm">
+    // Pas d'overflow-hidden : il couperait le menu d'actions.
+    <article className="rounded-2xl border border-border bg-card text-card-foreground shadow-sm">
       {/* En-tête : auteur, date, type, menu de modération */}
       <header className="flex items-center gap-3 px-4 py-3">
         <span aria-hidden className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-brand-foreground ring-2 ring-primary/20">
@@ -112,34 +115,37 @@ export function PostCard({ post, detail = false, onChange, onDeleted }: Props) {
         <TypeBadge type={post.type} />
         {post.status !== "active" && <StatusBadge status={post.status} />}
 
-        <div ref={menuRef} className="relative">
-          <button
-            aria-label={S.menu}
-            aria-haspopup="menu"
-            aria-expanded={menu}
-            disabled={busy}
-            onClick={() => setMenu((v) => !v)}
-            className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-          >
-            <DotsIcon />
-          </button>
-          {menu && (
-            <div role="menu" className="absolute right-0 top-11 z-10 w-60 overflow-hidden rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-lg">
-              {!detail && (
-                <Link role="menuitem" href={`${base}/${post._id}`} className={menuItem}>{item(ArrowRightIcon, S.openPost)}</Link>
-              )}
-              {post.status === "active" ? (
-                <button role="menuitem" onClick={() => setStatus("closed")} className={menuItem}>{item(LockIcon, S.close)}</button>
-              ) : (
-                <button role="menuitem" onClick={() => setStatus("active")} className={menuItem}>{item(DotIcon, S.reopen)}</button>
-              )}
-              {post.status !== "resolved" && (
-                <button role="menuitem" onClick={() => setStatus("resolved")} className={menuItem}>{item(CheckCircleIcon, S.markResolved)}</button>
-              )}
-              <button role="menuitem" onClick={() => { setMenu(false); setConfirming(true); }} className={`${menuItem} text-destructive`}>{item(TrashIcon, S.delete, "danger")}</button>
-            </div>
-          )}
-        </div>
+        {/* Actions : auteur du post ou admin uniquement (l'API le vérifie aussi). */}
+        {manageable && (
+          <div ref={menuRef} className="relative">
+            <button
+              aria-label={S.menu}
+              aria-haspopup="menu"
+              aria-expanded={menu}
+              disabled={busy}
+              onClick={() => setMenu((v) => !v)}
+              className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            >
+              <DotsIcon />
+            </button>
+            {menu && (
+              <div role="menu" className="absolute right-0 top-11 z-10 w-60 overflow-hidden rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-lg">
+                {!detail && (
+                  <Link role="menuitem" href={`${base}/${post._id}`} className={menuItem}>{item(ArrowRightIcon, S.openPost)}</Link>
+                )}
+                {post.status === "active" ? (
+                  <button role="menuitem" onClick={() => setStatus("closed")} className={menuItem}>{item(LockIcon, S.close)}</button>
+                ) : (
+                  <button role="menuitem" onClick={() => setStatus("active")} className={menuItem}>{item(DotIcon, S.reopen)}</button>
+                )}
+                {post.status !== "resolved" && (
+                  <button role="menuitem" onClick={() => setStatus("resolved")} className={menuItem}>{item(CheckCircleIcon, S.markResolved)}</button>
+                )}
+                <button role="menuitem" onClick={() => { setMenu(false); setConfirming(true); }} className={`${menuItem} text-destructive`}>{item(TrashIcon, S.delete, "danger")}</button>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {confirming && (
@@ -200,7 +206,7 @@ export function PostCard({ post, detail = false, onChange, onDeleted }: Props) {
         </span>
       </div>
 
-      {showComments && <CommentsThread postId={post._id} onChanged={refreshCounts} />}
+      {showComments && <CommentsThread postId={post._id} viewer={viewer} onChanged={refreshCounts} />}
     </article>
   );
 }

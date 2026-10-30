@@ -73,7 +73,7 @@ export type Room = { id: string; name: string; building: string; capacity: numbe
 
 // ---- Notifications (/api/notifications) ----
 
-export type NotificationType = "TIMETABLE_CHANGE" | "ANNOUNCEMENT" | "SYSTEM";
+export type NotificationType = "TIMETABLE_CHANGE" | "ANNOUNCEMENT" | "SYSTEM" | "ACCOUNT";
 
 export type AppNotification = {
   id: string;

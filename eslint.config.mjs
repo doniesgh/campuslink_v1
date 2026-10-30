@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Extra build folders (NEXT_DIST_DIR=.next-<name>, parallel builds and tests).
     ".next-*/**",
+    // The API is a separate CommonJS package (backend/package.json), not part of the Next.js app.
+    "backend/**",
   ]),
 ]);
 

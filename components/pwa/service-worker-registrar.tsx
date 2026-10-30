@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { safeNextPath } from "@/lib/safe-next";
+// Catches the browser's install prompt as soon as the app loads (the account page offers it later).
+import "@/lib/pwa/install";
 
 /** Production builds, or NEXT_PUBLIC_ENABLE_SW=true (e.g. to try push/offline with `next dev`). */
 export const SERVICE_WORKER_ENABLED =

@@ -19,6 +19,7 @@ const {
 } = require('../service/tokenService');
 const { sendEmail, otpMailTemplate, passwordResetMailTemplate } = require('../service/mailService');
 const auditService = require('../service/auditService');
+const { notifyAdminsOfSignup } = require('../service/accountNotifications');
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
@@ -64,6 +65,8 @@ const signup = async (req, res) => {
   }
 
   await user.save();
+  // The admins get an in-app + push notification (in the background: the answer is not delayed).
+  void notifyAdminsOfSignup(user);
   res.status(201).json(await issueTokens(user, req));
 };
 

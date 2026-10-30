@@ -1,81 +1,51 @@
-import type {
-  InputHTMLAttributes,
-  ReactNode,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
-} from "react";
+import * as React from "react";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
-export const controlClass =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
-
-type FieldChildProps = {
-  id?: string;
+/** Props to spread on the control so its label, hint and error are announced with it. */
+export type FieldChildProps = {
+  id: string;
   "aria-invalid"?: boolean;
   "aria-describedby"?: string;
 };
 
-interface FieldProps {
-  id?: string;
-  label: string;
+type FieldProps = {
+  id: string;
+  label: React.ReactNode;
+  /** Help text under the control. */
+  hint?: React.ReactNode;
+  /** Inline error, shown under the hint. */
+  error?: string | null;
   className?: string;
-  error?: string;
-  children: ReactNode | ((props: FieldChildProps) => ReactNode);
-}
+  children: (props: FieldChildProps) => React.ReactNode;
+};
 
-export function Field({
-  id,
-  label,
-  className = "",
-  error,
-  children,
-}: FieldProps) {
-  const childProps: FieldChildProps = {
-    id,
-    "aria-invalid": Boolean(error),
-    "aria-describedby": error && id ? `${id}-error` : undefined,
-  };
+/**
+ * Label + control + hint + error, wired together (htmlFor, aria-describedby, aria-invalid).
+ *
+ *   <Field id="email" label="Email" hint="..." error={errors.email}>
+ *     {(props) => <Input {...props} type="email" name="email" />}
+ *   </Field>
+ */
+export function Field({ id, label, hint, error, className, children }: Readonly<FieldProps>) {
+  const hintId = hint ? `${id}-hint` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
+  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
-    <div className={`grid gap-1.5 ${className}`}>
-      <label
-        htmlFor={id}
-        className="text-xs font-semibold text-slate-600 dark:text-slate-300"
-      >
-        {label}
-      </label>
-
-      {typeof children === "function" ? children(childProps) : children}
-
+    <div className={cn("space-y-2", className)}>
+      <Label htmlFor={id}>{label}</Label>
+      {children({ id, "aria-invalid": error ? true : undefined, "aria-describedby": describedBy })}
+      {hint && (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
       {error && (
-        <p
-          id={id ? `${id}-error` : undefined}
-          className="text-sm text-red-600"
-          role="alert"
-        >
+        <p id={errorId} className="text-sm text-destructive">
           {error}
         </p>
       )}
     </div>
   );
 }
-
-export const Input = ({
-  className = "",
-  ...props
-}: InputHTMLAttributes<HTMLInputElement>) => (
-  <input className={`${controlClass} ${className}`} {...props} />
-);
-
-export const Textarea = ({
-  className = "",
-  ...props
-}: TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-  <textarea className={`${controlClass} ${className}`} {...props} />
-);
-
-export const Select = ({
-  className = "",
-  ...props
-}: SelectHTMLAttributes<HTMLSelectElement>) => (
-  <select className={`${controlClass} ${className}`} {...props} />
-);

@@ -109,6 +109,12 @@ const notifyUsers = async (userIds, buildMessage, { push = true } = {}) => {
       docs.forEach((doc) => realtime.emitToUser(doc.user, 'notification:new', hint(doc)));
 
       if (push) {
+        // Unread count of each recipient: the service worker shows it on the installed app's icon (Badging API).
+        const unread = await Notification.aggregate([
+          { $match: { user: { $in: docs.map((doc) => doc.user) }, readAt: null } },
+          { $group: { _id: '$user', count: { $sum: 1 } } },
+        ]);
+        const unreadCount = new Map(unread.map(({ _id, count }) => [String(_id), count]));
         const pushes = docs.map((doc, index) => {
           const { message } = messages[index];
           return {
@@ -118,7 +124,12 @@ const notifyUsers = async (userIds, buildMessage, { push = true } = {}) => {
               body: doc.body,
               link: doc.link,
               tag: message.tag || `${doc.type.toLowerCase()}-${doc._id}`,
-              data: { ...doc.data, notificationId: String(doc._id), type: doc.type },
+              data: {
+                ...doc.data,
+                notificationId: String(doc._id),
+                type: doc.type,
+                unreadCount: unreadCount.get(String(doc.user)) ?? 1,
+              },
               urgency: message.urgency,
             },
           };

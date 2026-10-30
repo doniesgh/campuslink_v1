@@ -19,6 +19,11 @@ const SYNC_TAG = "campuslink-outbox";
 const DB_NAME = "campuslink";
 const DB_VERSION = 1;
 
+/** Periodic Background Sync of the admin's saved user directory (lib/users/background-refresh.ts). */
+const DIRECTORY_SYNC_TAG = "campuslink-users-directory";
+/** Query key of the directory in the IndexedDB "cache" store (useOfflineQuery(["users", "directory"])). */
+const DIRECTORY_KEY = "users:directory";
+
 /** Without an answer after this delay, a navigation is served from the cache (when there is a copy). */
 const NAVIGATION_TIMEOUT_MS = 6000;
 /** A page saved less than this long ago is not fetched again in the background. */
@@ -37,29 +42,17 @@ const OWNER_COOKIE = "cl_owner";
 
 /** The landing page: no personal data, served to anyone. */
 const PUBLIC_PAGES = ["/"];
-/** Pages of the offline modules. Admin pages and /dashboard/account are never saved. */
-// const PRIVATE_PAGES = [
-//   /^\/dashboard$/,
-//   /^\/dashboard\/timetable$/,
-//   /^\/dashboard\/announcements$/,
-//   /^\/dashboard\/announcements\/[A-Za-z0-9_-]{1,64}$/,
-//   /^\/dashboard\/notifications$/,
-//   // Phase 2 (docs/phase2-contract.md section 0): same owner and expiry rules.
-//   /^\/dashboard\/bookings$/,
-//   /^\/dashboard\/forum$/,
-//   /^\/dashboard\/forum\/[A-Za-z0-9_-]{1,64}$/,
-//   /^\/dashboard\/analytics$/,
-// ];
+/**
+ * Pages saved for offline use, each for its owner only (24 h at most, wiped when the session ends). The users
+ * page (admins) and the account page belong to the user management module; the other admin pages are never saved.
+ */
 const PRIVATE_PAGES = [
   /^\/dashboard$/,
-  /^\/dashboard\/timetable$/,
-  /^\/dashboard\/announcements$/,
-  /^\/dashboard\/announcements\/[A-Za-z0-9_-]{1,64}$/,
   /^\/dashboard\/notifications$/,
-  /^\/dashboard\/bookings$/,
   /^\/dashboard\/forum$/,
   /^\/dashboard\/forum\/[A-Za-z0-9_-]{1,64}$/,
-  /^\/dashboard\/analytics$/,
+  /^\/dashboard\/account$/,
+  /^\/dashboard\/admin\/users$/,
 ];
 const NEVER_CACHE_PREFIXES = ["/bff/", "/api/", "/auth/"];
 const AUTH_PAGES = ["/login", "/signup", "/forgot-password", "/reset-password"];
@@ -319,6 +312,9 @@ async function savePage(url, response, kind) {
   const cache = await caches.open(PAGES_CACHE);
   await cache.put(pageKey(url), new Response(body, { status: response.status, statusText: response.statusText, headers }));
   pageSavedAt.set(pageKey(url), Date.now());
+  // The scripts and styles of the route, so a full offline reload of a page only reached by client-side
+  // navigation (saved in the background) still starts.
+  if (kind === "private") await cacheAssetsOf(await body.text()).catch(() => undefined);
 }
 
 async function offlineFallback() {
@@ -446,10 +442,15 @@ self.addEventListener("push", (event) => {
     data: { ...(payload.data && typeof payload.data === "object" ? payload.data : {}), link },
   };
   if (typeof payload.tag === "string" && payload.tag) options.tag = payload.tag;
+  // Unread count sent by the backend: shown on the installed app's icon, even when no page is open.
+  const unread = payload.data && Number.isInteger(payload.data.unreadCount) ? payload.data.unreadCount : null;
 
   event.waitUntil(
     (async () => {
       await self.registration.showNotification(title, options);
+      if (unread !== null && self.navigator && typeof self.navigator.setAppBadge === "function") {
+        await self.navigator.setAppBadge(unread).catch(() => undefined);
+      }
       await notifyClients({ type: "PUSH_RECEIVED", tag: options.tag || null, link });
     })()
   );
@@ -510,15 +511,28 @@ function bffUrl(path) {
   return `/bff${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+/** { status, code, message, details, at } of a refused answer ({ error, code, details } JSON). */
+async function rejectionOf(response) {
+  const body = await response.json().catch(() => ({}));
+  return {
+    status: response.status,
+    code: typeof body.code === "string" ? body.code : "UNKNOWN_ERROR",
+    message: typeof body.error === "string" ? body.error : `Request failed with status ${response.status}.`,
+    details: body.details,
+    at: Date.now(),
+  };
+}
+
 /** Same rules as replayOutbox() in lib/offline/outbox.ts. Rejects when offline so the browser retries. */
 async function replayOutbox() {
   await withLock(async () => {
     const db = await openDb();
     let sent = 0;
+    let rejected = 0;
     try {
       const owner = ((await storeRequest(db, "meta", "readonly", (store) => store.get("owner"))) || {}).value;
       const records = ((await storeRequest(db, "outbox", "readonly", (store) => store.getAll())) || [])
-        .filter((record) => record.owner === owner)
+        .filter((record) => record.owner === owner && !record.rejected)
         .sort((a, b) => a.createdAt - b.createdAt);
 
       for (const record of records) {
@@ -540,16 +554,66 @@ async function replayOutbox() {
         }
         // Session over, server unreachable or busy: keep the rest for later.
         if (response.status === 401 || response.status === 429 || response.status >= 500) break;
-        // Rejected for good (e.g. 404): drop it.
-        await storeRequest(db, "outbox", "readwrite", (store) => store.delete(record.id));
+        // Refused for good (e.g. 404, 409): kept with the reason when the module asked for it, else dropped.
+        if (record.keepRejected) {
+          const rejection = await rejectionOf(response);
+          await storeRequest(db, "outbox", "readwrite", (store) => store.put({ ...record, rejected: rejection }));
+        } else {
+          await storeRequest(db, "outbox", "readwrite", (store) => store.delete(record.id));
+        }
+        rejected += 1;
       }
     } finally {
       db.close();
-      if (sent > 0) await notifyClients({ type: "OUTBOX_CHANGED", sent });
+      if (sent > 0 || rejected > 0) await notifyClients({ type: "OUTBOX_CHANGED", sent, rejected });
     }
   });
 }
 
 self.addEventListener("sync", (event) => {
   if (event.tag === SYNC_TAG) event.waitUntil(replayOutbox());
+});
+
+// ---------------------------------------------------------------- periodic background sync (users directory)
+
+/**
+ * Saves a fresh copy of the admin's user directory in IndexedDB, as useOfflineQuery(["users", "directory"])
+ * would ("<owner>::users:directory"), while no page is open. Without a session nothing happens; when the account
+ * is no longer an admin (403) the saved copy goes and the periodic sync is unregistered.
+ */
+async function refreshUsersDirectory() {
+  const owner = await currentOwner();
+  if (!owner || owner !== (await readMetaOwner())) return;
+
+  let response;
+  try {
+    response = await fetch("/bff/users/directory", { credentials: "same-origin", headers: { Accept: "application/json" } });
+  } catch {
+    return; // offline: next period
+  }
+  const key = `${owner}::${DIRECTORY_KEY}`;
+  if (response.status === 403) {
+    const db = await openDb();
+    try {
+      await storeRequest(db, "cache", "readwrite", (store) => store.delete(key));
+    } finally {
+      db.close();
+    }
+    if (self.registration.periodicSync) await self.registration.periodicSync.unregister(DIRECTORY_SYNC_TAG).catch(() => undefined);
+    return;
+  }
+  if (!response.ok) return;
+
+  const data = await response.json();
+  const db = await openDb();
+  try {
+    await storeRequest(db, "cache", "readwrite", (store) => store.put({ key, owner, data, savedAt: Date.now() }));
+  } finally {
+    db.close();
+  }
+  await notifyClients({ type: "CACHE_UPDATED", key: DIRECTORY_KEY });
+}
+
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === DIRECTORY_SYNC_TAG) event.waitUntil(refreshUsersDirectory().catch(() => undefined));
 });

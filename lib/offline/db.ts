@@ -8,7 +8,13 @@ export const DB_VERSION = 1;
 /** A saved GET answer (stale-while-revalidate). `key` = "<owner>::<query key>". */
 export type CacheRecord = { key: string; owner: string; data: unknown; savedAt: number };
 
-/** A mutation waiting to be sent. `id` = "<owner>|<METHOD> <path>" (last write wins). */
+/** Why the API refused a queued mutation for good (4xx). */
+export type OutboxRejection = { status: number; code: string; message: string; details?: unknown; at: number };
+
+/**
+ * A mutation waiting to be sent. `id` = "<owner>|<key>", the key being "<METHOD> <path>" unless the caller
+ * chose one (last write wins per key).
+ */
 export type OutboxRecord = {
   id: string;
   owner: string;
@@ -16,6 +22,14 @@ export type OutboxRecord = {
   path: string;
   body?: unknown;
   createdAt: number;
+  /** Module that queued it (e.g. "users"): its pages list and show their own waiting changes. */
+  scope?: string;
+  /** What the module needs to show it (e.g. the user it is about). */
+  info?: Record<string, unknown>;
+  /** On a definitive refusal (4xx), keep it with `rejected` (shown to the user) instead of dropping it. */
+  keepRejected?: boolean;
+  /** Set when the API refused it: no longer replayed until retried or replaced. */
+  rejected?: OutboxRejection;
 };
 
 export type MetaRecord = { key: string; value: unknown };

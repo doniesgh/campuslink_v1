@@ -34,7 +34,7 @@
   },
   "push": {
     "title": "Notifications",
-    "description": "Reçois les changements d'emploi du temps et les annonces sur cet appareil, même quand CampusLink est fermé.",
+    "description": "Reçois les changements de ton compte et les nouvelles de CampusLink sur cet appareil, même quand l'appli est fermée.",
     "enable": "Activer les notifications push",
     "disable": "Désactiver les notifications push",
     "enabled": "Les notifications push sont activées sur cet appareil.",
@@ -44,5 +44,22 @@
     "noServiceWorker": "Les notifications push ont besoin de l'appli installée. Ouvre CampusLink depuis une version de production, puis réessaie.",
     "denied": "Les notifications sont bloquées pour CampusLink. Autorise-les dans les réglages de ton navigateur, puis réessaie.",
     "failed": "On n'a pas pu modifier les notifications push. Réessaie."
+  },
+  "offline": {
+    "queued": "Enregistré sur cet appareil. Ton profil sera mis à jour dès que tu es reconnecté.",
+    "pending": "Modification en attente de synchronisation.",
+    "rejected": "Ta dernière modification du profil n'a pas pu être appliquée : {reason}",
+    "needsConnection": "Nécessite une connexion.",
+    "discard": "Abandonner"
+  },
+  "device": {
+    "title": "Cet appareil",
+    "description": "Installe CampusLink, reçois les notifications et utilise ton compte hors ligne.",
+    "install": "Installer CampusLink",
+    "installDescription": "Ouvre-la depuis ton écran d'accueil ou ton bureau comme n'importe quelle appli, même hors ligne.",
+    "installed": "CampusLink est installée sur cet appareil.",
+    "installIos": "Sur iPhone ou iPad : touche Partager, puis « Sur l'écran d'accueil ».",
+    "installMenu": "Ton navigateur peut aussi installer CampusLink depuis son menu (« Installer l'application »).",
+    "offline": "Cette page et ton profil restent consultables hors ligne sur cet appareil pendant 24 heures. Les modifications du profil faites hors ligne partent dès que tu es reconnecté."
   }
 }
