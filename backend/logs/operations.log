@@ -141,3 +141,4 @@
 2026-10-30T08:37:31.494Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
 2026-10-30T08:45:47.981Z - POST /api/auth/login 200 - user: - - ip: ::1 - Body: {"email":"emna@gmail.com","password":"[REDACTED]"}
 2026-10-30T09:00:26.015Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}
+2026-10-30T09:15:06.154Z - POST /api/auth/refresh 200 - user: - - ip: ::1 - Body: {"refreshToken":"[REDACTED]"}

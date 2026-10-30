@@ -2,7 +2,7 @@
 
 import { Briefcase, Inbox, Pencil, Trash2 } from "lucide-react";
 import { CheckIcon, IconCircle, PinIcon } from "@/components/forum/icons";
-import type { Offer } from "@/lib/announcements/types";
+import type { Offer } from "@/lib/opportunities/types";
 import { timeAgo } from "@/lib/forum/format";
 import { btnDanger, btnPrimary, btnSm } from "@/lib/forum/ui";
 import { TypeBadge } from "./badges";

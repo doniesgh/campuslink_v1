@@ -2,7 +2,7 @@
 "use client";
 
 import { Inbox, Send } from "lucide-react";
-import type { AppStatus, Application } from "@/lib/announcements/types";
+import type { AppStatus, Application } from "@/lib/opportunities/types";
 import { ApplicationCard } from "./application-card";
 import { Empty } from "./common";
 

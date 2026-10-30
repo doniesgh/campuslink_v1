@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CloseIcon, SearchIcon } from "@/components/forum/icons";
-import { OFFER_TYPES, TYPE_LABEL, type Offer } from "@/lib/announcements/types";
+import { OFFER_TYPES, TYPE_LABEL, type Offer } from "@/lib/opportunities/types";
 import { Empty, Pill } from "./common";
 import { OfferCard } from "./offer-card";
 

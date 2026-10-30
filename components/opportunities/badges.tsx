@@ -1,5 +1,5 @@
 import { Briefcase } from "lucide-react";
-import { STATUS, TYPE_LABEL, type AppStatus } from "@/lib/announcements/types";
+import { STATUS, TYPE_LABEL, type AppStatus } from "@/lib/opportunities/types";
 
 export function TypeBadge({ type }: { type: string }) {
     return (

@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 import { Pencil } from "lucide-react";
 import { IconCircle, PinIcon, PlusIcon, SendIcon } from "@/components/forum/icons";
-import { OFFER_TYPES, TYPE_LABEL, type OfferForm as Form } from "@/lib/announcements/types";
+import { OFFER_TYPES, TYPE_LABEL, type OfferForm as Form } from "@/lib/opportunities/types";
 import { btn, btnPrimary, field, fieldIcon, panel, textarea } from "@/lib/forum/ui";
 import { Field } from "./common";
 

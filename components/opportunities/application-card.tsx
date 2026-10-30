@@ -2,7 +2,7 @@
 
 import { Briefcase } from "lucide-react";
 import { IconCircle } from "@/components/forum/icons";
-import type { AppStatus, Application } from "@/lib/announcements/types";
+import type { AppStatus, Application } from "@/lib/opportunities/types";
 import { timeAgo } from "@/lib/forum/format";
 import { btnSm } from "@/lib/forum/ui";
 import { StatusBadge, TypeBadge } from "./badges";

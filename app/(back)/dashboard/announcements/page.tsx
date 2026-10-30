@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ApplicationsTab } from "@/components/announcements/applications-tab";
-import { Pill } from "@/components/announcements/common";
-import { BriefcaseIcon, InboxIcon } from "@/components/announcements/icons";
-import { OfferForm } from "@/components/announcements/offer-form";
-import { OffersTab } from "@/components/announcements/offers-tab";
+import { ApplicationsTab } from "@/components/opportunities/applications-tab";
+import { Pill } from "@/components/opportunities/common";
+import { BriefcaseIcon, InboxIcon } from "@/components/opportunities/icons";
+import { OfferForm } from "@/components/opportunities/offer-form";
+import { OffersTab } from "@/components/opportunities/offers-tab";
 import { IconCircle, PlusIcon, SendIcon } from "@/components/forum/icons";
 import { API, APPS_KEY, OFFERS_KEY, flushQueue, getCached, send } from "@/lib/opportunities/api";
 import { useOffline } from "@/lib/opportunities/use-offline";
@@ -42,6 +42,7 @@ export default function Announcements() {
     if (!online) return;
     flushQueue().finally(loadAll);
   }, [online, loadAll]);*/
+  // 1) Affichage immédiat depuis le cache local (marche hors ligne)
   useEffect(() => {
     try {
       const o = localStorage.getItem(OFFERS_KEY);
@@ -51,6 +52,13 @@ export default function Announcements() {
     } catch {}
     setLoading(false);
   }, []);
+
+  // 2) Rafraîchissement : en ligne on envoie la file d'attente puis on recharge ;
+  //    hors ligne, loadAll relit le cache
+  useEffect(() => {
+    if (online) flushQueue().finally(loadAll);
+    else loadAll();
+  }, [online, loadAll]);
 
   /** Exécute une action puis recharge les données. */
   async function run(action: () => Promise<void>) {
