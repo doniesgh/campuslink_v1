@@ -1,17 +1,15 @@
 import type { Metadata } from "next";
-import { PostDetail } from "@/components/forum/post-detail";
-import { getCurrentUser } from "@/lib/dal";
+import { PostView } from "@/components/forum/post-view";
 import { S } from "@/lib/forum/strings";
 
 export const metadata: Metadata = { title: S.title };
 
+/** Page d'un post : la carte complète + ses commentaires (ajout, réponse, modification, suppression). */
 export default async function ForumPostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { user } = await getCurrentUser(`/dashboard/forum/${encodeURIComponent(id)}`);
   return (
-    <div className="container space-y-6 py-9 sm:py-10">
-      <h1 className="text-2xl font-semibold">{S.title}</h1>
-      <PostDetail id={id} viewer={user ? { id: user.id, role: user.role } : null} />
+    <div className="container py-9 sm:py-10">
+      <PostView id={id} />
     </div>
   );
 }

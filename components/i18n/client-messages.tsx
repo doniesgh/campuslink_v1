@@ -3,10 +3,10 @@ import { getMessages } from "next-intl/server";
 import type { Namespace } from "@/i18n/config";
 
 /** Used by Client Components on every page: shell, language switcher, error texts (common), connectivity banner (offline). */
-const BASE_NAMESPACES: readonly Namespace[] = ["common", "offline"];
+const BASE_NAMESPACES: readonly Namespace[] = ["common", "offline","forum"];
 
 /** Client namespaces of the /dashboard pages (admin pages add "admin", see dashboard/admin/layout.tsx). */
-export const DASHBOARD_NAMESPACES: readonly Namespace[] = ["dashboard", "account", "notifications"];
+export const DASHBOARD_NAMESPACES: readonly Namespace[] = ["dashboard", "account", "notifications","forum"];
 
 /**
  * Hands the messages of `namespaces` (plus common and offline) to the Client Components below it (Server Component).

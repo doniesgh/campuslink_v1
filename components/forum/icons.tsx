@@ -39,16 +39,34 @@ export const ArrowLeftIcon = make(<path d="M19 12H5M11 6l-6 6 6 6" />);
 export const TrashIcon = make(<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6" />);
 export const SendIcon = make(<path d="M21 3L10.5 13.5M21 3l-6.5 18-4-7.5L3 9.5 21 3z" />);
 
+export const EditIcon = make(<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3zM14.5 7.5l3 3" />);
+export const HeartOutlineIcon = make(<path d="M12 20.5s-7.2-4.4-9.2-8.8C1.4 8.5 3.2 5 6.5 5c2 0 3.5 1 4.5 2.6h2C14 6 15.5 5 17.5 5c3.3 0 5.1 3.5 3.7 6.7-2 4.4-9.2 8.8-9.2 8.800z" />);
+export const CloudOffIcon = make(<path d="M3 3l18 18M7.5 7.600A5.5 5.5 0 0 0 7 18h10.500a4 4 0 0 0 1.8-.5M17.2 10.400A5.5 5.5 0 0 0 9.5 5.2" />);
+export const RefreshIcon = make(<path d="M20 11a8 8 0 0 0-14.3-4.600L4 8.500M4 4v4.500h4.500M4 13a8 8 0 0 0 14.3 4.600L20 15.500M20 20v-4.500h-4.5" />);
+
+export const RouteIcon = make(<><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M8 19h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7" /></>);
+export const ClockIcon = make(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>);
+export const LeafIcon = make(<><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14" /><path d="M5 19c3-5 6-8 10-10" /></>);
+export const HashIcon = make(<path d="M9 4L7.5 20M16.5 4L15 20M4.5 9h16M3.5 15h16" />);
+export const LuggageIcon = make(<><rect x="3" y="7" width="18" height="13" rx="2.5" /><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 13h18" /></>);
+export const MusicIcon = make(<><path d="M9 18V6l10-2v12" /><circle cx="6.5" cy="18" r="2.5" /><circle cx="16.5" cy="16" r="2.5" /></>);
+export const SnowflakeIcon = make(<path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9M9.5 4.5L12 7l2.5-2.5M9.5 19.5L12 17l2.5 2.5" />);
+export const UsersIcon = make(<><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.5a6.5 6.5 0 0 1 3.5 5.5" /></>);
+export const NoSmokeIcon = make(<path d="M3 3l18 18M3 15h12v3H3zM18 15v3M21 12a2.5 2.5 0 0 0-2.5-2.5M18 6a3 3 0 0 1 3 3" />);
+export const UserIcon = make(<><circle cx="12" cy="8" r="4" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></>);
+
 const tones = {
-  brand: "bg-brand text-brand-foreground",
-  solid: "bg-primary text-primary-foreground",
-  soft: "bg-accent text-accent-foreground",
-  primary: "bg-primary/10 text-primary",
-  heart: "bg-highlight/10 text-highlight",
-  success: "bg-success/10 text-success",
-  danger: "bg-destructive/10 text-destructive",
-  muted: "bg-muted text-muted-foreground",
-  onBrand: "bg-brand-foreground/15 text-brand-foreground",
+  heartOn: "bg-rose-500 text-white",
+  amber: "bg-amber-100 text-amber-600",
+  brand: "bg-blue-900 text-white",
+  solid: "bg-blue-900 text-white",
+  soft: "bg-[#eff4ff] text-blue-900",
+  primary: "bg-blue-50 text-blue-600",
+  heart: "bg-rose-50 text-rose-500",
+  success: "bg-emerald-50 text-emerald-600",
+  danger: "bg-red-50 text-red-600",
+  muted: "bg-slate-100 text-slate-500",
+  onBrand: "bg-white/15 text-white",
 };
 const sizes = {
   sm: "size-7 [&>svg]:size-3.5",

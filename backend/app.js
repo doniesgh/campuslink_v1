@@ -52,7 +52,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/audit', auditRoutes);
 // Forum: /api/posts/... and /api/comments/:id.
-app.use('/api', forumRoutes);
+app.use('/api/posts', forumRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found', code: 'NOT_FOUND' });
