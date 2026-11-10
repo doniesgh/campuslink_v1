@@ -13,6 +13,8 @@ const make = (d: ReactNode, filled = false) =>
   };
 
 export const HeartIcon = make(<path d="M12 21s-7.5-4.6-9.6-9.2C.8 8.2 2.8 4.5 6.4 4.5c2 0 3.7 1.1 4.6 2.7h2c.9-1.6 2.6-2.7 4.6-2.7 3.6 0 5.6 3.7 4 7.3C19.5 16.4 12 21 12 21z" />, true);
+export const HeartOutlineIcon = make(<path d="M12 20.5s-7.2-4.4-9.2-8.8C1.4 8.5 3.2 5 6.5 5c2 0 3.5 1 4.5 2.6h2C14 6 15.5 5 17.5 5c3.3 0 5.1 3.5 3.7 6.7-2 4.4-9.2 8.8-9.2 8.8z" />);
+export const ImageIcon = make(<><rect x="3.5" y="4.5" width="17" height="15" rx="3" /><circle cx="9" cy="10" r="1.6" /><path d="M4 17l5-5 4 4 3-3 4 4" /></>);
 export const DotsIcon = make(<><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></>, true);
 export const DotIcon = make(<circle cx="12" cy="12" r="5" />, true);
 export const CommentIcon = make(<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />);
@@ -37,9 +39,15 @@ export const CashIcon = make(<><rect x="2.5" y="6" width="19" height="12" rx="2.
 export const ArrowRightIcon = make(<path d="M5 12h14M13 6l6 6-6 6" />);
 export const ArrowLeftIcon = make(<path d="M19 12H5M11 6l-6 6 6 6" />);
 export const TrashIcon = make(<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6" />);
+export const EditIcon = make(<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3zM14.5 7.5l3 3" />);
 export const SendIcon = make(<path d="M21 3L10.5 13.5M21 3l-6.5 18-4-7.5L3 9.5 21 3z" />);
+export const RouteIcon = make(<><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M8 19h7a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h7" /></>);
+export const ClockIcon = make(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>);
+export const LeafIcon = make(<><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14" /><path d="M5 19c3-5 6-8 10-10" /></>);
+export const UserIcon = make(<><circle cx="12" cy="8" r="4" /><path d="M4.5 20a7.5 7.5 0 0 1 15 0" /></>);
 
 const tones = {
+  heartOn: "bg-highlight text-white",
   brand: "bg-brand text-brand-foreground",
   solid: "bg-primary text-primary-foreground",
   soft: "bg-accent text-accent-foreground",

@@ -4,18 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { bff, errorMessage } from "@/lib/forum/bff";
-import { authorName, canManage, fmtDate, initials, timeAgo } from "@/lib/forum/format";
+import { authorName, fmtDate, initials, timeAgo } from "@/lib/forum/format";
 import { S } from "@/lib/forum/strings";
-import type { Post, PostStatus, Viewer } from "@/lib/forum/types";
+import type { Post, PostStatus } from "@/lib/forum/types";
 import { btnDanger, btnSm } from "@/lib/forum/ui";
 import { StatusBadge, TypeBadge } from "./badges";
 import { CommentsThread } from "./comments-thread";
-import { ArrowRightIcon, CheckCircleIcon, CommentIcon, DotIcon, DotsIcon, EyeIcon, HeartIcon, IconCircle, LockIcon, PinIcon, TrashIcon } from "./icons";
+import { useForum } from "./forum-provider";
+import { ArrowRightIcon, CheckCircleIcon, CommentIcon, DotIcon, DotsIcon, EditIcon, EyeIcon, HeartIcon, HeartOutlineIcon, IconCircle, LockIcon, PinIcon, TrashIcon } from "./icons";
 import { PostMedia } from "./post-media";
 
 interface Props {
   post: Post;
-  viewer: Viewer | null;
   detail?: boolean;
   onChange: (post: Post) => void;
   onDeleted: (id: string) => void;
@@ -24,8 +24,14 @@ interface Props {
 type Icon = ComponentType<{ className?: string }>;
 const menuItem = "flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground";
 
-export function PostCard({ post, viewer, detail = false, onChange, onDeleted }: Props) {
-  const base = usePathname();
+export function PostCard({ post, detail = false, onChange, onDeleted }: Props) {
+  const pathname = usePathname();
+  const base = detail ? pathname.replace(/\/[^/]+\/?$/, "") : pathname; // liste des posts, même depuis la page d'un post
+  const { canManagePost, userId } = useForum();
+  const manage = canManagePost(post); // auteur du post ou admin
+  // L'API peut renvoyer likedByMe ; sinon on le déduit de la liste des likes et de l'id de l'utilisateur.
+  const isLiked = post.likedByMe ?? (!!userId && !!post.likes?.some((id) => String(id) === String(userId)));
+  const [liking, setLiking] = useState(false);
   const [menu, setMenu] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [showComments, setShowComments] = useState(detail);
@@ -82,8 +88,26 @@ export function PostCard({ post, viewer, detail = false, onChange, onDeleted }: 
     }
   }
 
-  const name = authorName(post.author);
-  const manageable = canManage(viewer, post.author);
+  /** POST /posts/:id/like (alterne like / unlike) -> { liked, likesCount }. Mise à jour immédiate, annulée si le serveur refuse. */
+  async function toggleLike() {
+    if (liking) return;
+    const prev = post;
+    const liked = !isLiked;
+    setLiking(true);
+    onChange({ ...post, likedByMe: liked, likesCount: Math.max(0, post.likesCount + (liked ? 1 : -1)) });
+    try {
+      const r = await bff<{ liked: boolean; likesCount: number }>(`/posts/${post._id}/like`, { method: "POST" });
+      onChange({ ...post, likedByMe: r.liked, likesCount: r.likesCount });
+      setError("");
+    } catch (e) {
+      onChange(prev);
+      setError(errorMessage(e));
+    } finally {
+      setLiking(false);
+    }
+  }
+
+  const name = authorName(post);
   const long = post.description.length > 180;
   const item = (Ic: Icon, text: string, tone: "soft" | "danger" = "soft") => (
     <>
@@ -93,7 +117,6 @@ export function PostCard({ post, viewer, detail = false, onChange, onDeleted }: 
   );
 
   return (
-    // Pas d'overflow-hidden : il couperait le menu d'actions.
     <article className="rounded-2xl border border-border bg-card text-card-foreground shadow-sm">
       {/* En-tête : auteur, date, type, menu de modération */}
       <header className="flex items-center gap-3 px-4 py-3">
@@ -115,36 +138,40 @@ export function PostCard({ post, viewer, detail = false, onChange, onDeleted }: 
         <TypeBadge type={post.type} />
         {post.status !== "active" && <StatusBadge status={post.status} />}
 
-        {/* Actions : auteur du post ou admin uniquement (l'API le vérifie aussi). */}
-        {manageable && (
-          <div ref={menuRef} className="relative">
-            <button
-              aria-label={S.menu}
-              aria-haspopup="menu"
-              aria-expanded={menu}
-              disabled={busy}
-              onClick={() => setMenu((v) => !v)}
-              className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-            >
-              <DotsIcon />
-            </button>
-            {menu && (
-              <div role="menu" className="absolute right-0 top-11 z-10 w-60 overflow-hidden rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-lg">
-                {!detail && (
-                  <Link role="menuitem" href={`${base}/${post._id}`} className={menuItem}>{item(ArrowRightIcon, S.openPost)}</Link>
-                )}
-                {post.status === "active" ? (
-                  <button role="menuitem" onClick={() => setStatus("closed")} className={menuItem}>{item(LockIcon, S.close)}</button>
-                ) : (
-                  <button role="menuitem" onClick={() => setStatus("active")} className={menuItem}>{item(DotIcon, S.reopen)}</button>
-                )}
-                {post.status !== "resolved" && (
-                  <button role="menuitem" onClick={() => setStatus("resolved")} className={menuItem}>{item(CheckCircleIcon, S.markResolved)}</button>
-                )}
-                <button role="menuitem" onClick={() => { setMenu(false); setConfirming(true); }} className={`${menuItem} text-destructive`}>{item(TrashIcon, S.delete, "danger")}</button>
-              </div>
-            )}
-          </div>
+        {(manage || !detail) && (
+        <div ref={menuRef} className="relative">
+          <button
+            aria-label={S.menu}
+            aria-haspopup="menu"
+            aria-expanded={menu}
+            disabled={busy}
+            onClick={() => setMenu((v) => !v)}
+            className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          >
+            <DotsIcon />
+          </button>
+          {menu && (
+            <div role="menu" className="absolute right-0 top-11 z-10 w-60 overflow-hidden rounded-xl border border-border bg-popover py-1 text-popover-foreground shadow-lg">
+              {!detail && (
+                <Link role="menuitem" href={`${base}/${post._id}`} className={menuItem}>{item(ArrowRightIcon, S.openPost)}</Link>
+              )}
+              {manage && (
+                <>
+              <Link role="menuitem" href={`${base}/${post._id}/edit`} className={menuItem}>{item(EditIcon, S.editPost)}</Link>
+              {post.status === "active" ? (
+                <button role="menuitem" onClick={() => setStatus("closed")} className={menuItem}>{item(LockIcon, S.close)}</button>
+              ) : (
+                <button role="menuitem" onClick={() => setStatus("active")} className={menuItem}>{item(DotIcon, S.reopen)}</button>
+              )}
+              {post.status !== "resolved" && (
+                <button role="menuitem" onClick={() => setStatus("resolved")} className={menuItem}>{item(CheckCircleIcon, S.markResolved)}</button>
+              )}
+              <button role="menuitem" onClick={() => { setMenu(false); setConfirming(true); }} className={`${menuItem} text-destructive`}>{item(TrashIcon, S.delete, "danger")}</button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
         )}
       </header>
 
@@ -186,11 +213,16 @@ export function PostCard({ post, viewer, detail = false, onChange, onDeleted }: 
 
       {/* Barre d'activité : chaque compteur a son icône ronde */}
       <div className="mt-4 flex items-center gap-1 border-t border-border px-3 py-2 text-sm text-muted-foreground">
-        <span className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3" title={S.likes}>
-          <IconCircle tone="heart" size="sm"><HeartIcon /></IconCircle>
-          <span className="sr-only">{S.likes}</span>
+        <button
+          onClick={toggleLike}
+          disabled={liking}
+          aria-pressed={isLiked}
+          aria-label={isLiked ? S.unlike : S.like}
+          className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <IconCircle tone={isLiked ? "heartOn" : "heart"} size="sm">{isLiked ? <HeartIcon /> : <HeartOutlineIcon />}</IconCircle>
           {post.likesCount}
-        </span>
+        </button>
         <button
           onClick={() => setShowComments((v) => !v)}
           aria-expanded={showComments}
@@ -199,6 +231,12 @@ export function PostCard({ post, viewer, detail = false, onChange, onDeleted }: 
           <IconCircle tone="primary" size="sm"><CommentIcon /></IconCircle>
           {showComments ? S.hideComments : S.comments(post.commentsCount)}
         </button>
+        {manage && (
+          <Link href={`${base}/${post._id}/edit`} className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <IconCircle tone="soft" size="sm"><EditIcon /></IconCircle>
+            {S.editPost}
+          </Link>
+        )}
         <span className="ml-auto flex items-center gap-2 rounded-full py-1 pl-1 pr-3" title={S.views}>
           <IconCircle tone="muted" size="sm"><EyeIcon /></IconCircle>
           <span className="sr-only">{S.views}</span>
@@ -206,7 +244,7 @@ export function PostCard({ post, viewer, detail = false, onChange, onDeleted }: 
         </span>
       </div>
 
-      {showComments && <CommentsThread postId={post._id} viewer={viewer} onChanged={refreshCounts} />}
+      {showComments && <CommentsThread postId={post._id} onChanged={refreshCounts} />}
     </article>
   );
 }
