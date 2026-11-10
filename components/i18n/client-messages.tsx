@@ -1,3 +1,4 @@
+
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import type { Namespace } from "@/i18n/config";

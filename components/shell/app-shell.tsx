@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "@/components/ui/app-link";
 import { usePathname } from "next/navigation";
-import { Bell, House, Menu, MessagesSquare, ScrollText, UserRound, Users, type LucideIcon } from "lucide-react";
+import { Bell, House, Menu, MessagesSquare, ScrollText, UserRound,CalendarCog, Users, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useUnreadCount } from "@/components/notifications/use-unread-count";
 import { LanguageSwitcher } from "@/components/i18n/language-switcher";
@@ -22,6 +22,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   forum: MessagesSquare,
   account: UserRound,
   users: Users,
+  timetable:CalendarCog,
   audit: ScrollText,
 };
 
