@@ -13,6 +13,7 @@ const { isEmailConfigured } = require('./service/mailService');
 const scheduler = require('./service/scheduler');
 const realtime = require('./service/realtime');
 const authRoutes = require('./routes/auth');
+const timetableRoutes = require('./routes/timetable');
 const userRoutes = require('./routes/user');
 const academicRoutes = require('./routes/academic');
 const notificationRoutes = require('./routes/notifications');
@@ -38,7 +39,8 @@ app.use((req, res, next) => {
   res.set('X-Content-Type-Options', 'nosniff');
   next();
 });
-
+app.use(express.json({ limit: '1mb' }));
+app.use(logger);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -50,10 +52,11 @@ app.use('/api/academic', academicRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/timetable', timetableRoutes);
+
 // Forum: /api/posts/... and /api/comments/:id.
 app.use('/api/posts', forumRoutes);
-app.use(express.json({ limit: '1mb' }));
-app.use(logger);
+
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found', code: 'NOT_FOUND' });
