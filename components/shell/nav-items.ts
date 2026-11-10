@@ -1,7 +1,7 @@
 import type { Role } from "@/lib/types";
 
 /** Keys of `common.nav.*` messages. */
-export type NavLabelKey = "home" | "notifications" | "forum" | "account" | "users" | "audit";
+export type NavLabelKey = "home" | "notifications" | "forum" | "account" | "users" | "audit" | "timetable" | "announcements";
 
 export type NavIconName = NavLabelKey;
 
@@ -13,6 +13,8 @@ export const MAIN_NAV: NavItem[] = [
   { key: "home", href: "/dashboard", icon: "home" },
   { key: "notifications", href: "/dashboard/notifications", icon: "notifications" },
   { key: "forum", href: "/dashboard/forum", icon: "forum" },
+  { key: "announcements", href: "/dashboard/announcements", icon: "announcements" },
+  { key: "timetable", href: "/dashboard/timetable", icon: "timetable" },
   { key: "account", href: "/dashboard/account", icon: "account" },
 ];
 
