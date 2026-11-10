@@ -116,7 +116,7 @@ exports.updatePost = async (req, res) => {
     if (!post) return res.status(404).json({ message: 'Annonce introuvable' });
 
     const isOwner = post.author.equals(req.user._id);
-    if (!isOwner && req.user.role !== 'admin') {
+    if (!isOwner && req.user.role !== 'ADMIN') {
       return res.status(403).json({ message: 'Action non autorisée' });
     }
 
@@ -137,7 +137,7 @@ exports.deletePost = async (req, res) => {
     if (!post) return res.status(404).json({ message: 'Annonce introuvable' });
 
     const isOwner = post.author.equals(req.user._id);
-    if (!isOwner && req.user.role !== 'admin') {
+    if (!isOwner && req.user.role !== 'ADMIN') {
       return res.status(403).json({ message: 'Action non autorisée' });
     }
 
@@ -179,7 +179,7 @@ exports.changeStatus = async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Annonce introuvable' });
 
-    if (!post.author.equals(req.user._id) && req.user.role !== 'admin') {
+    if (!post.author.equals(req.user._id) && req.user.role !== 'ADMIN') {
       return res.status(403).json({ message: 'Action non autorisée' });
     }
     post.status = status;
