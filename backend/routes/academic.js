@@ -1,12 +1,20 @@
 const express = require('express');
-const { listGroups } = require('../controllers/academicController');
+const handlers = require('../controllers/academicController');
 const { requireAuth, requireRole } = require('../middleware/requireAuth');
 
 const router = express.Router();
 
-// Mounted at /api/academic. ADMIN only (the users page lists the groups a student can be put in).
-router.use(requireAuth, requireRole('ADMIN'));
+// Mounted at /api/academic. Reading: any authenticated user. Changes: ADMIN only.
+router.use(requireAuth);
+const adminOnly = requireRole('ADMIN');
 
-router.get('/groups', listGroups);
+['programs', 'groups', 'subjects', 'rooms'].forEach((plural) => {
+  const { list, getOne, create, update, remove } = handlers[plural];
+  router.get(`/${plural}`, list);
+  router.get(`/${plural}/:id`, getOne);
+  router.post(`/${plural}`, adminOnly, create);
+  router.patch(`/${plural}/:id`, adminOnly, update);
+  router.delete(`/${plural}/:id`, adminOnly, remove);
+});
 
 module.exports = router;
