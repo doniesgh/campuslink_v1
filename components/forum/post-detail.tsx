@@ -191,9 +191,8 @@ export function PostDetail({ id }: { id: string }) {
                   disabled={busy || on}
                   aria-pressed={on}
                   onClick={() => run(() => bff(`/posts/${id}`, { method: "PUT", json: { status: s } }))}
-                  className={`flex h-11 items-center gap-3 rounded-full border py-1 pl-1.5 pr-4 text-left text-sm transition-colors disabled:cursor-default ${
-                    on ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background hover:bg-accent"
-                  }`}
+                  className={`flex h-11 items-center gap-3 rounded-full border py-1 pl-1.5 pr-4 text-left text-sm transition-colors disabled:cursor-default ${on ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background hover:bg-accent"
+                    }`}
                 >
                   <span aria-hidden className={`flex size-8 items-center justify-center rounded-full [&>svg]:size-4 ${on ? "bg-primary-foreground/20" : "bg-accent text-accent-foreground"}`}><Icon /></span>
                   {S.status[s]}

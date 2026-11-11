@@ -506,7 +506,7 @@ export function PostCard({
         </button>
 
         {/* RESERVATION BUTTON */}
-        {!detail &&
+        {
           !manage &&
           post.type === "covoiturage" &&
           post.status === "active" &&
