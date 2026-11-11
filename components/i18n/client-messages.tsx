@@ -7,7 +7,7 @@ import type { Namespace } from "@/i18n/config";
 const BASE_NAMESPACES: readonly Namespace[] = ["common", "offline"];
 
 /** Client namespaces of the /dashboard pages (admin pages add "admin", see dashboard/admin/layout.tsx). */
-export const DASHBOARD_NAMESPACES: readonly Namespace[] = ["dashboard", "account", "notifications"];
+export const DASHBOARD_NAMESPACES: readonly Namespace[] = ["dashboard", "account", "notifications","forum","timetable"];
 
 /**
  * Hands the messages of `namespaces` (plus common and offline) to the Client Components below it (Server Component).

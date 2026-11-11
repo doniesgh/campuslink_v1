@@ -4,7 +4,7 @@
   "description": "CampusLink REST API (Express + MongoDB)",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
+    "start": "nodemon app",
     "dev": "nodemon app.js",
     "create-admin": "node scripts/create-admin.js",
     "generate-vapid": "node scripts/generate-vapid.js",
@@ -20,6 +20,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
+    "csv-parse": "^7.0.3",
     "dotenv": "^18.0.4",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.1",

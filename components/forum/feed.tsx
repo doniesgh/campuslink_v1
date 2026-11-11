@@ -3,12 +3,19 @@
 import { useCallback, useEffect, useState, type ComponentType, type FormEvent } from "react";
 import { bff, errorMessage } from "@/lib/forum/bff";
 import { S } from "@/lib/forum/strings";
-import { STATUSES, TYPES, type Post, type PostsPage, type PostStatus, type PostType, type Viewer } from "@/lib/forum/types";
+import { STATUSES, TYPES, type Post, type PostsPage, type PostStatus, type PostType } from "@/lib/forum/types";
 import { btn } from "@/lib/forum/ui";
 import { STATUS_ICONS, TYPE_ICONS } from "./badges";
 import { CloseIcon, GridIcon, IconCircle, SearchIcon } from "./icons";
 import { PostCard } from "./post-card";
-
+// import { usePathname } from "next/navigation";
+import {
+  cachedGet,
+  cachePosts,
+  filterPosts,
+  searchCachedPosts,
+  toPage,
+} from "@/lib/forum/offline";;
 type Icon = ComponentType<{ className?: string }>;
 
 function Chips<T extends string>({ label, value, options, onChange }: { label: string; value: T | ""; options: [T | "", string, Icon][]; onChange: (v: T | "") => void }) {
@@ -21,9 +28,8 @@ function Chips<T extends string>({ label, value, options, onChange }: { label: s
             key={v || "all"}
             aria-pressed={on}
             onClick={() => onChange(v)}
-            className={`inline-flex shrink-0 items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              on ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card hover:bg-accent hover:text-accent-foreground"
-            }`}
+            className={`inline-flex shrink-0 items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card hover:bg-accent hover:text-accent-foreground"
+              }`}
           >
             <span aria-hidden className={`flex size-6 items-center justify-center rounded-full [&>svg]:size-3.5 ${on ? "bg-primary-foreground/20" : "bg-accent text-accent-foreground"}`}>
               <Icon />
@@ -36,7 +42,7 @@ function Chips<T extends string>({ label, value, options, onChange }: { label: s
   );
 }
 
-export function Feed({ viewer }: { viewer: Viewer | null }) {
+export function Feed() {
   const [type, setType] = useState<PostType | "">("");
   const [status, setStatus] = useState<PostStatus | "">("");
   const [q, setQ] = useState("");
@@ -45,27 +51,94 @@ export function Feed({ viewer }: { viewer: Viewer | null }) {
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
 
+  const [myPosts, setMyPosts] = useState(false);  // const fetchPage = useCallback(
+//  const pathname = usePathname().replace(/\/$/, "");
+
+// // Demande au service worker de sauvegarder la liste et le détail des posts affichés (consultables hors ligne)
+// useEffect(() => {
+//   if (loading || !("serviceWorker" in navigator)) return;
+//   navigator.serviceWorker.ready.then((reg) => {
+//     const worker = reg.active;
+//     if (!worker) return;
+//     worker.postMessage({ type: "CACHE_PAGE", url: pathname });
+//     posts.slice(0, 20).forEach((p) => worker.postMessage({ type: "CACHE_PAGE", url: `${pathname}/${p._id}` }));
+//   });
+// }, [loading, posts, pathname]);
+  //   (p: number) => {
+  //     const params = new URLSearchParams({ page: String(p), limit: "8", status: status || "all" });
+  //     if (type) params.set("type", type);
+  //     if (search) params.set("q", search);
+  //     return bff<PostsPage>(`/posts?${params}`);
+  //   },
+  //   [type, status, search]
+  // );
   const fetchPage = useCallback(
-    (p: number) => {
-      const params = new URLSearchParams({ page: String(p), limit: "8", status: status || "all" });
-      if (type) params.set("type", type);
-      if (search) params.set("q", search);
-      return bff<PostsPage>(`/posts?${params}`);
-    },
-    [type, status, search]
-  );
+  async (p: number) => {
+    const params = new URLSearchParams({ page: String(p), limit: "8", status: status || "all" });
+    if (type) params.set("type", type);
+    if (search) params.set("q", search);
 
-  // Une requête par combinaison de filtres (et par « Réessayer ») : chargement tant que sa réponse n'est pas arrivée.
-  const [attempt, setAttempt] = useState(0);
-  const requestKey = `${type}|${status}|${search}|${attempt}`;
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
-  const loading = loadedKey !== requestKey;
+    const filters = { q: search, type, status };
+    const endpoint = myPosts ? "/posts/me" : "/posts";
 
-  useEffect(() => {
+    const result = await cachedGet<PostsPage | Post[]>(
+      `${endpoint}?${params}`,
+      () => searchCachedPosts({ ...filters, mine: myPosts }),
+    );
+
+    let data = toPage(result.data);
+    if (myPosts) {
+      // GET /posts/me n'applique ni filtre ni pagination : on filtre ici
+      const posts = filterPosts(data.posts, filters);
+      data = { posts, page: 1, pages: 1, total: posts.length };
+    }
+
+    await cachePosts(data.posts); // « Mes posts » aussi : les pages de détail s'ouvrent hors ligne
+    return data;
+  },
+  [type, status, search, myPosts],
+);
+  // const fetchPage = useCallback(
+  //   async (p: number) => {
+  //     const params = new URLSearchParams({
+  //       page: String(p),
+  //       limit: "8",
+  //       status: status || "all",
+  //     });
+
+  //     if (type) params.set("type", type);
+  //     if (search) params.set("q", search);
+
+  //     const endpoint = myPosts ? "/posts/me" : "/posts";
+  //     const url = `${endpoint}?${params}`;
+
+  //     const result = await cachedGet<PostsPage>(
+  //       url,
+  //       !myPosts
+  //         ? () =>
+  //           searchCachedPosts({
+  //             q: search,
+  //             type,
+  //             status,
+  //           })
+  //         : undefined
+  //     );
+
+  //     if (!myPosts) {
+  //       await cachePosts(result.data.posts);
+  //     }
+
+  //     return result.data;
+  //   },
+  //   [type, status, search, myPosts]
+  // );
+  const reload = useCallback(() => {
     let off = false;
+    setLoading(true);
     fetchPage(1)
       .then((d) => {
         if (off) return;
@@ -76,13 +149,13 @@ export function Feed({ viewer }: { viewer: Viewer | null }) {
         setError("");
       })
       .catch((e) => !off && setError(errorMessage(e)))
-      .finally(() => !off && setLoadedKey(requestKey));
+      .finally(() => !off && setLoading(false));
     return () => {
       off = true;
     };
-  }, [fetchPage, requestKey]);
+  }, [fetchPage]);
 
-  const reload = () => setAttempt((n) => n + 1);
+  useEffect(() => reload(), [reload]);
 
   async function loadMore() {
     setLoadingMore(true);
@@ -110,6 +183,29 @@ export function Feed({ viewer }: { viewer: Viewer | null }) {
 
   return (
     <section aria-label={S.title} className="mx-auto mt-6 max-w-2xl space-y-5">
+      <div className="flex justify-center gap-2">
+        <button
+          type="button"
+          onClick={() => setMyPosts(false)}
+          className={`rounded-full border px-4 py-2 text-sm transition ${!myPosts
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-input bg-card hover:bg-accent"
+            }`}
+        >
+          Tous les posts
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMyPosts(true)}
+          className={`rounded-full border px-4 py-2 text-sm transition ${myPosts
+            ? "border-primary bg-primary text-primary-foreground"
+            : "border-input bg-card hover:bg-accent"
+            }`}
+        >
+          Mes posts
+        </button>
+      </div>
       {/* Recherche : petite, centrée, en pilule */}
       <form
         onSubmit={onSearch}
@@ -168,7 +264,6 @@ export function Feed({ viewer }: { viewer: Viewer | null }) {
           <PostCard
             key={p._id}
             post={p}
-            viewer={viewer}
             onChange={(next) => setPosts((prev) => prev.map((x) => (x._id === next._id ? next : x)))}
             onDeleted={(id) => {
               setPosts((prev) => prev.filter((x) => x._id !== id));

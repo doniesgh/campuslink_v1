@@ -1,7 +1,8 @@
 import type { Role } from "@/lib/types";
 
 /** Keys of `common.nav.*` messages. */
-export type NavLabelKey = "home" | "notifications" | "forum" | "account" | "users" | "audit" | "timetable";
+export type NavLabelKey = "home" | "notifications" | "forum" | "account" | "users" | "audit" | "announcements" |    "timetable"
+;
 
 export type NavIconName = NavLabelKey;
 
@@ -11,12 +12,13 @@ export type NavGroup = { labelKey: "administration"; items: NavItem[] };
 /** Links every signed-in user sees (also the mobile bottom navigation). */
 export const MAIN_NAV: NavItem[] = [
   { key: "home", href: "/dashboard", icon: "home" },
+  { key: "timetable", href: "/dashboard/timetable", icon: "timetable" },
+  { key: "announcements", href: "/dashboard/announcements", icon: "announcements" },
   { key: "notifications", href: "/dashboard/notifications", icon: "notifications" },
   { key: "forum", href: "/dashboard/forum", icon: "forum" },
   { key: "timetable", href: "/dashboard/timetable", icon: "timetable" },
   { key: "account", href: "/dashboard/account", icon: "account" },
 ];
-
 const item = (key: NavLabelKey, href: string): NavItem => ({ key, href, icon: key });
 
 const ADMIN_NAV: NavItem[] = [item("users", "/dashboard/admin/users"), item("audit", "/dashboard/admin/audit")];

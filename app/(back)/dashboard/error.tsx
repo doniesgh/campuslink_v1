@@ -16,7 +16,7 @@ export default function DashboardError({ retry }: { error: Error & { digest?: st
         <h1 className="mt-3 text-xl font-semibold">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Button className="rounded-full" onClick={() => retry()}>
+          <Button  className="rounded-full" onClick={() => retry()}>
             {t("retry")}
           </Button>
           <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline" }), "rounded-full")}>

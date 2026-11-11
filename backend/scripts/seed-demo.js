@@ -11,6 +11,8 @@ const mongoose = require('mongoose');
 const User = require('../models/userModel');
 const Program = require('../models/programModel');
 const Group = require('../models/groupModel');
+const Subject = require('../models/subjectModel');
+const Room = require('../models/roomModel');
 const time = require('../utils/time');
 
 const DEMO_PASSWORD = 'Campus123!';
@@ -40,6 +42,24 @@ const GROUPS = [
   { name: '4SAE1', program: 'SAE' },
 ];
 
+const SUBJECTS = [
+  { code: 'BDD', name: 'Bases de données', color: '#253C6D' },
+  { code: 'WEB', name: 'Développement web avancé', color: '#1F7A8C' },
+  { code: 'ML', name: 'Machine learning', color: '#2E7D32' },
+  { code: 'ARCH', name: 'Architecture logicielle', color: '#B4531A' },
+  { code: 'ENG', name: 'Anglais professionnel', color: '#8E24AA' },
+  { code: 'AGILE', name: 'Gestion de projet agile', color: '#C62828' },
+];
+
+const ROOMS = [
+  { name: 'A04', building: 'Bloc A', capacity: 40, type: 'CLASSROOM' },
+  { name: 'A12', building: 'Bloc A', capacity: 40, type: 'CLASSROOM' },
+  { name: 'B12', building: 'Bloc B', capacity: 36, type: 'CLASSROOM' },
+  { name: 'C201', building: 'Bloc C', capacity: 24, type: 'LAB' },
+  { name: 'C202', building: 'Bloc C', capacity: 24, type: 'LAB' },
+  { name: 'Amphi A', building: 'Bloc A', capacity: 200, type: 'AMPHITHEATER' },
+];
+
 const ADMIN = { firstname: 'Admin', lastname: 'CampusLink', email: `admin@${EMAIL_DOMAIN}`, locale: 'fr' };
 
 const TEACHERS = [
@@ -53,6 +73,7 @@ const STUDENTS = [
   { firstname: 'Yasmine', lastname: 'Haddad', group: '4TWIN1', locale: 'fr' },
   { firstname: 'Omar', lastname: 'Ferchichi', group: '4TWIN1', locale: 'en' },
   { firstname: 'Sarra', lastname: 'Mansouri', group: '4TWIN1', locale: 'fr' },
+  // Two more 4TWIN1 students so the anonymized group comparison (5+ students) can be shown in demos.
   { firstname: 'Mariem', lastname: 'Jlassi', group: '4TWIN1', locale: 'fr' },
   { firstname: 'Aziz', lastname: 'Ben Amor', group: '4TWIN1', locale: 'fr' },
   { firstname: 'Ahmed', lastname: 'Karray', group: '4TWIN2', locale: 'fr' },
@@ -64,11 +85,23 @@ const STUDENTS = [
   { firstname: 'Aya', lastname: 'Khelifi', group: '4SAE1', locale: 'fr' },
   { firstname: 'Hamza', lastname: 'Dridi', group: '4SAE1', locale: 'fr' },
   { firstname: 'Lina', lastname: 'Bouazizi', group: '4SAE1', locale: 'en' },
-  // A student without a group (the dashboard shows "Not assigned yet").
+  // A student without a group (the timetable shows "You're not assigned to a group yet.").
   { firstname: 'Skander', lastname: 'Mejri', group: null, locale: 'fr' },
 ];
 
 const ALUMNI = [{ firstname: 'Selim', lastname: 'Rekik', locale: 'fr' }];
+
+// Who teaches what to whom: a suggestion for the timetable plugin (subject code, teacher index, groups).
+const TEACHING = [
+  { subject: 'BDD', teacher: 0, groups: ['4TWIN1', '4TWIN2'] },
+  { subject: 'WEB', teacher: 1, groups: ['4TWIN1'] },
+  { subject: 'WEB', teacher: 1, groups: ['4TWIN2'] },
+  { subject: 'ML', teacher: 2, groups: ['4DS1'] },
+  { subject: 'ARCH', teacher: 3, groups: ['4SAE1'] },
+  { subject: 'ENG', teacher: 2, groups: ['4TWIN1', '4TWIN2', '4DS1', '4SAE1'] },
+  { subject: 'AGILE', teacher: 3, groups: ['4DS1', '4SAE1'] },
+  { subject: 'BDD', teacher: 0, groups: ['4DS1'] },
+];
 
 // "Leïla Ben Salah" → "leila.bensalah@campuslink.local"
 const emailFor = ({ firstname, lastname }) => {
@@ -136,6 +169,16 @@ const seedCore = async () => {
     );
   }
 
+  const subjects = {};
+  for (const subject of SUBJECTS) {
+    subjects[subject.code] = await upsert(Subject, { code: subject.code }, subject);
+  }
+
+  const rooms = {};
+  for (const room of ROOMS) {
+    rooms[room.name] = await upsert(Room, { name: room.name }, room, Room.NAME_COLLATION);
+  }
+
   const admin = await upsertUser({ ...ADMIN, role: 'ADMIN' });
   const teachers = [];
   for (const teacher of TEACHERS) {
@@ -168,8 +211,16 @@ const seedCore = async () => {
     byEmail: Object.fromEntries(all.map((user) => [user.email, user])),
   };
 
-  console.log(`Academic year ${academicYear}: ${PROGRAMS.length} programs, ${GROUPS.length} groups, ${all.length} accounts.`);
-  return { academicYear, programs, groups, users };
+  const teaching = TEACHING.map(({ subject, teacher, groups: names }) => ({
+    subject: subjects[subject],
+    teacher: teachers[teacher],
+    groups: names.map((name) => groups[name]),
+  }));
+
+  console.log(
+    `Academic year ${academicYear}: ${PROGRAMS.length} programs, ${GROUPS.length} groups, ${SUBJECTS.length} subjects, ${ROOMS.length} rooms, ${all.length} accounts.`
+  );
+  return { academicYear, programs, groups, subjects, rooms, users, teaching };
 };
 
 const printAccounts = (users) => {

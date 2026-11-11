@@ -25,7 +25,14 @@ export class ApiError extends Error {
     this.details = details;
   }
 }
+const LOG_API = process.env.API_LOG !== "false";
 
+function logApi(method: string, path: string, outcome: string, startedAt: number): void {
+  if (!LOG_API) return;
+  const ms = Math.round(performance.now() - startedAt);
+  // Sans la query string, au cas où elle contiendrait un token.
+  console.log(`[api] ${method} ${path.split("?")[0]} -> ${outcome} ${ms}ms`);
+}
 export type ApiMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 type ApiOptions = {
@@ -107,26 +114,66 @@ export async function apiErrorFromResponse(res: Response): Promise<ApiError> {
  * Throws an ApiError for any non-2xx answer; network failures and timeouts
  * become an ApiError with status 0 and code NETWORK_ERROR.
  */
+// export async function api<T>(path: string, { method, body, token, forward }: ApiOptions = {}): Promise<T> {
+//   const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+//   const headers: Record<string, string> = { Accept: "application/json", ...clientForwardHeaders(forward) };
+//   if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
+//   if (token) headers.Authorization = `Bearer ${token}`;
+
+//   let res: Response;
+//   try {
+//     res = await fetch(`${API_URL}${path}`, {
+//       method: method ?? (body === undefined ? "GET" : "POST"),
+//       headers,
+//       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
+//       cache: "no-store",
+//       signal: AbortSignal.timeout(isForm ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS),
+//     });
+//   } catch (cause) {
+//     throw new ApiError(0, "NETWORK_ERROR", "Can't reach the server.", undefined, { cause });
+//   }
+
+//   if (!res.ok) throw await apiErrorFromResponse(res);
+//   if (res.status === 204) return undefined as T;
+
+//   const text = await res.text().catch(() => "");
+//   if (!text) return undefined as T;
+//   try {
+//     return JSON.parse(text) as T;
+//   } catch {
+//     return undefined as T;
+//   }
+// }
 export async function api<T>(path: string, { method, body, token, forward }: ApiOptions = {}): Promise<T> {
   const isForm = typeof FormData !== "undefined" && body instanceof FormData;
   const headers: Record<string, string> = { Accept: "application/json", ...clientForwardHeaders(forward) };
   if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
 
+  const verb = method ?? (body === undefined ? "GET" : "POST");
+  const startedAt = performance.now();
+
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
-      method: method ?? (body === undefined ? "GET" : "POST"),
+      method: verb,
       headers,
       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
       cache: "no-store",
       signal: AbortSignal.timeout(isForm ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS),
     });
   } catch (cause) {
+    const reason = cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
+    logApi(verb, path, `NETWORK_ERROR (${reason}) [${API_URL}]`, startedAt);
     throw new ApiError(0, "NETWORK_ERROR", "Can't reach the server.", undefined, { cause });
   }
 
-  if (!res.ok) throw await apiErrorFromResponse(res);
+  if (!res.ok) {
+    const error = await apiErrorFromResponse(res);
+    logApi(verb, path, `${res.status} ${error.code}`, startedAt);
+    throw error;
+  }
+  logApi(verb, path, String(res.status), startedAt);
   if (res.status === 204) return undefined as T;
 
   const text = await res.text().catch(() => "");

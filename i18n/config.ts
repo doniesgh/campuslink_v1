@@ -20,15 +20,10 @@ export const NAMESPACES = [
   "admin",
   "notifications",
   "offline",
-  "timetable",
-  "announcements",
-  "bookings",
   "forum",
-  "analytics",
-  "carpool",
-  "marketplace",
-  "alumni",
+  "timetable",
 ] as const;
+
 export type Namespace = (typeof NAMESPACES)[number];
 
 /** Campus timezone used for every displayed date/time and every "today"/"this week" range. */

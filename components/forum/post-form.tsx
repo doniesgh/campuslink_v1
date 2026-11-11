@@ -2,16 +2,29 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { bff, errorMessage } from "@/lib/forum/bff";
 import { S } from "@/lib/forum/strings";
-import { TYPES, type LostKind, type PostType } from "@/lib/forum/types";
+import { TYPES, type LostKind, type Post, type PostType } from "@/lib/forum/types";
 import { btn, btnPrimary, field, fieldIcon, panel, textarea } from "@/lib/forum/ui";
+import { estimateRoute, tripInsights, type LatLng } from "@/lib/forum/geo";
+import { N } from "@/lib/forum/nearby-strings";
 import { TYPE_ICONS } from "./badges";
-import { ArrowLeftIcon, BoxIcon, CalendarIcon, CarIcon, CashIcon, CheckIcon, CloseIcon, FlagIcon, IconCircle, PinIcon, SearchIcon, SeatIcon, SendIcon } from "./icons";
+import { ImagePicker } from "./image-picker";
+import { PointPicker } from "./point-picker";
+import { TripInsights } from "./trip-insights";
+import { ArrowLeftIcon, BoxIcon, CalendarIcon, CarIcon, CashIcon, CheckIcon, CloseIcon, EditIcon, FlagIcon, IconCircle, PinIcon, SearchIcon, SeatIcon, SendIcon } from "./icons";
 
 type ErrorKey = "title" | "description" | "departure" | "destination" | "departureDate" | "price" | "category" | "place";
 type Errors = Partial<Record<ErrorKey, string>>;
+
+/** ISO -> valeur d'un <input type="datetime-local"> en heure locale. */
+function toLocalInput(iso?: string) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 const MAX_SEATS = 8;
 const MAX_TAGS = 5;
@@ -48,28 +61,40 @@ function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode
   );
 }
 
-export function PostForm() {
+export function PostForm({ initial }: { initial?: Post }) {
   const router = useRouter();
-  const listPath = usePathname().replace(/\/[^/]+\/?$/, "");
+  // /forum/new -> /forum ; /forum/ID/edit -> /forum (retour vers /forum/ID après modification)
+  const parts = usePathname().replace(/\/$/, "").split("/");
+  const root = parts.slice(0, initial ? -2 : -1).join("/") || "/";
+  const backHref = initial ? `${root}/${initial._id}` : root;
 
-  const [type, setType] = useState<PostType>("covoiturage");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [type, setType] = useState<PostType>(initial?.type ?? "covoiturage");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [location, setLocation] = useState(initial?.location ?? "");
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
+  const [images, setImages] = useState<string[]>(initial?.images ?? []);
   // Covoiturage
-  const [departure, setDeparture] = useState("");
-  const [destination, setDestination] = useState("");
-  const [departureDate, setDepartureDate] = useState("");
-  const [seats, setSeats] = useState(3);
-  const [price, setPrice] = useState("");
-  const [free, setFree] = useState(false);
+  const [departure, setDeparture] = useState(initial?.covoiturage?.departure ?? "");
+  const [destination, setDestination] = useState(initial?.covoiturage?.destination ?? "");
+  // Points choisis sur la carte (latitude / longitude) + distance estimée sans service externe
+  const [fromPt, setFromPt] = useState<LatLng | null>(initial?.covoiturage?.departureCoords ?? null);
+  const [toPt, setToPt] = useState<LatLng | null>(initial?.covoiturage?.destinationCoords ?? null);
+  const route = useMemo(() => (fromPt && toPt ? estimateRoute(fromPt, toPt) : null), [fromPt, toPt]);
+  const [departureDate, setDepartureDate] = useState(toLocalInput(initial?.covoiturage?.departureDate));
+  const [seats, setSeats] = useState(initial?.covoiturage?.seats ?? 3);
+  const [price, setPrice] = useState(initial?.covoiturage?.price ? String(initial.covoiturage.price) : "");
+  const [free, setFree] = useState(initial?.covoiturage?.price === 0);
+  // Prix conseillé (1 DT/km) : rempli automatiquement tant que l'utilisateur n'a pas tapé son propre prix
+  const [priceEdited, setPriceEdited] = useState(Boolean(initial));
+  const suggestedPrice = route ? tripInsights(route.distanceKm, route.durationMin, 1).pricePerSeat : undefined;
+  const shownPrice = !priceEdited && suggestedPrice !== undefined ? String(suggestedPrice) : price;
   // Objet perdu / trouvé
-  const [kind, setKind] = useState<LostKind>("perdu");
-  const [category, setCategory] = useState("");
-  const [place, setPlace] = useState("");
-  const [lostDate, setLostDate] = useState("");
+  const [kind, setKind] = useState<LostKind>(initial?.objetPerdu?.kind ?? "perdu");
+  const [category, setCategory] = useState(initial?.objetPerdu?.category ?? "");
+  const [place, setPlace] = useState(initial?.objetPerdu?.place ?? "");
+  const [lostDate, setLostDate] = useState(initial?.objetPerdu?.date?.slice(0, 10) ?? "");
 
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
@@ -101,7 +126,7 @@ export function PostForm() {
       if (!departure.trim()) errs.departure = S.required;
       if (!destination.trim()) errs.destination = S.required;
       if (!departureDate) errs.departureDate = S.required;
-      if (!free && (price === "" || Number.isNaN(Number(price)) || Number(price) < 0)) errs.price = S.priceInvalid;
+      if (!free && (shownPrice === "" || Number.isNaN(Number(shownPrice)) || Number(shownPrice) < 0)) errs.price = S.priceInvalid;
     }
     if (type === "objet_perdu") {
       if (!category.trim()) errs.category = S.required;
@@ -115,9 +140,13 @@ export function PostForm() {
       title: title.trim(),
       description: description.trim(),
       tags,
+      images,
       location: location.trim() || undefined,
       ...(type === "covoiturage"
-        ? { covoiturage: { departure: departure.trim(), destination: destination.trim(), departureDate: new Date(departureDate).toISOString(), seats, price: free ? 0 : Number(price) } }
+        ? { covoiturage: { departure: departure.trim(), destination: destination.trim(), departureDate: new Date(departureDate).toISOString(), seats, price: free ? 0 : Number(shownPrice),
+            ...(fromPt && toPt && route
+              ? { departureCoords: { lat: fromPt.lat, lng: fromPt.lng }, destinationCoords: { lat: toPt.lat, lng: toPt.lng }, distanceKm: route.distanceKm, durationMin: route.durationMin }
+              : {}) } }
         : {}),
       ...(type === "objet_perdu"
         ? { objetPerdu: { kind, category: category.trim(), place: place.trim(), date: lostDate ? new Date(lostDate).toISOString() : undefined } }
@@ -127,8 +156,12 @@ export function PostForm() {
     setBusy(true);
     setError("");
     try {
-      await bff("/posts", { method: "POST", json: payload });
-      router.push(listPath);
+      if (initial) await bff(`/posts/${initial._id}`, { method: "PUT", json: payload });
+      else {
+        await bff("/posts", { method: "POST", json: payload });
+        window.dispatchEvent(new Event("forum:posted")); // met à jour la liste de mes posts (droit de modifier le nouveau post)
+      }
+      router.push(backHref);
       router.refresh();
     } catch (err) {
       setError(errorMessage(err));
@@ -138,18 +171,19 @@ export function PostForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="mx-auto max-w-2xl space-y-5">
-      <Link href={listPath} className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+      <Link href={backHref} className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
         <IconCircle tone="primary" size="sm"><ArrowLeftIcon /></IconCircle>
         {S.back}
       </Link>
 
       <header className="flex flex-col items-center text-center">
-        <IconCircle tone="brand" size="lg" className="size-14 ring-4 ring-primary/15 [&>svg]:size-7"><SendIcon /></IconCircle>
-        <h1 className="mt-3 text-2xl font-semibold">{S.newPostTitle}</h1>
-        <p className="mt-1 max-w-md text-sm text-muted-foreground">{S.newPostSubtitle}</p>
+        <IconCircle tone="brand" size="lg" className="size-14 ring-4 ring-primary/15 [&>svg]:size-7">{initial ? <EditIcon /> : <SendIcon />}</IconCircle>
+        <h1 className="mt-3 text-2xl font-semibold">{initial ? S.editPostTitle : S.newPostTitle}</h1>
+        <p className="mt-1 max-w-md text-sm text-muted-foreground">{initial ? S.editPostSubtitle : S.newPostSubtitle}</p>
       </header>
 
       {/* 1. Type de post */}
+      {!initial && (
       <section className={`${panel} space-y-4 p-5 shadow-sm`}>
         <h2 className="text-base font-semibold" id="pick-type">{S.pickType}</h2>
         <div role="radiogroup" aria-labelledby="pick-type" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -175,6 +209,7 @@ export function PostForm() {
           })}
         </div>
       </section>
+      )}
 
       {/* 2. Détails selon le type */}
       {type === "covoiturage" && (
@@ -224,7 +259,7 @@ export function PostForm() {
           <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
             <Field id="price" label={S.price} error={errors.price}>
               <WithIcon icon={<CashIcon />}>
-                <input id="price" type="number" min={0} step="0.5" inputMode="decimal" className={`${fieldIcon} w-full disabled:opacity-50`} value={free ? "" : price} disabled={free} onChange={(e) => setPrice(e.target.value)} {...inv("price")} />
+                <input id="price" type="number" min={0} step="0.5" inputMode="decimal" className={`${fieldIcon} w-full disabled:opacity-50`} value={free ? "" : shownPrice} disabled={free} onChange={(e) => { setPrice(e.target.value); setPriceEdited(true); }} {...inv("price")} />
               </WithIcon>
             </Field>
             <button
@@ -238,6 +273,27 @@ export function PostForm() {
               <span aria-hidden className={`flex size-8 items-center justify-center rounded-full [&>svg]:size-4 ${free ? "bg-primary-foreground/20" : "bg-accent text-accent-foreground"}`}><CheckIcon /></span>
               {S.freeRide}
             </button>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">{N.pickTitle}</h3>
+            <PointPicker from={fromPt} to={toPt} onFrom={setFromPt} onTo={setToPt} />
+            {route ? (
+              <TripInsights
+                distanceKm={route.distanceKm}
+                durationMin={route.durationMin}
+                seats={seats}
+                departure={departureDate ? new Date(departureDate).toISOString() : undefined}
+                price={free ? 0 : shownPrice === "" ? undefined : Number(shownPrice)}
+                estimated
+                onUsePrice={() => {
+                  setFree(false);
+                  setPriceEdited(false); // revient au prix conseillé
+                }}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">{N.pickMissing}</p>
+            )}
           </div>
         </section>
       )}
@@ -305,6 +361,8 @@ export function PostForm() {
             </WithIcon>
           </Field>
         )}
+        <ImagePicker value={images} onChange={setImages} />
+
         <Field id="tags" label={`${S.fieldTags} (${S.optional.toLowerCase()})`} hint={S.tagsHint}>
           <div className="flex min-h-11 flex-wrap items-center gap-2 rounded-xl border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring">
             {tags.map((t) => (
@@ -332,10 +390,10 @@ export function PostForm() {
       {error && <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">{error}</p>}
 
       <div className="flex flex-col-reverse gap-3 pb-24 sm:flex-row sm:justify-end">
-        <Link href={listPath} className={btn}>{S.cancel}</Link>
+        <Link href={backHref} className={btn}>{S.cancel}</Link>
         <button type="submit" disabled={busy} className={btnPrimary}>
           <SendIcon className="size-[18px]" />
-          {busy ? S.publishing : S.publish}
+          {busy ? (initial ? S.saving : S.publishing) : initial ? S.saveChanges : S.publish}
         </button>
       </div>
     </form>

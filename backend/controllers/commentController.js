@@ -9,7 +9,31 @@ const assertPostExists = async (id) => {
   assertObjectId(id);
   if (!(await Post.exists({ _id: id }))) throw notFound('Post');
 };
+const updateComment = async (req, res) => {
+  assertObjectId(req.params.id);
 
+  const { content } = req.body ?? {};
+
+  if (isBlank(content) || typeof content !== 'string') {
+    throw validationError({ content: 'content is required' });
+  }
+
+  const comment = await Comment.findById(req.params.id);
+
+  if (!comment) throw notFound('Comment');
+
+  assertCanManage(req.user, comment);
+
+  comment.content = content.trim();
+  await comment.save();
+
+  const updated = await Comment.findById(comment._id)
+    .select('-__v')
+    .populate('author', AUTHOR_FIELDS)
+    .lean();
+
+  res.status(200).json(updated);
+};
 // POST /api/posts/:id/comments { content, parent? } → 201 comment (author populated).
 // Replies are one level deep: `parent` must be a top-level comment of the same post.
 const addComment = async (req, res) => {
@@ -67,4 +91,4 @@ const deleteComment = async (req, res) => {
   res.status(204).end();
 };
 
-module.exports = { addComment, getComments, deleteComment };
+module.exports = { addComment, getComments, deleteComment ,updateComment};
