@@ -9,6 +9,8 @@ import { TypeBadge } from "./badges";
 
 type Props = {
     offer: Offer;
+    canEdit: boolean; // recruteur propriétaire de l'offre, ou admin
+    canApply: boolean; // étudiant
     busy: boolean;
     confirming: boolean;
     onEdit: () => void;
@@ -18,7 +20,7 @@ type Props = {
     onApply: () => void;
 };
 
-export function OfferCard({ offer: o, busy, confirming, onEdit, onAskDelete, onCancelDelete, onDelete, onApply }: Props) {
+export function OfferCard({ offer: o, canEdit, canApply, busy, confirming, onEdit, onAskDelete, onCancelDelete, onDelete, onApply }: Props) {
     return (
         <article className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm">
             <header className="flex items-center gap-3 px-4 py-3">
@@ -37,15 +39,17 @@ export function OfferCard({ offer: o, busy, confirming, onEdit, onAskDelete, onC
                     </p>
                 </div>
                 <TypeBadge type={o.type} />
+                {canEdit && (<>
                 <button onClick={onEdit} aria-label="Modifier" title="Modifier" className="flex size-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:size-4">
                     <Pencil />
                 </button>
                 <button onClick={onAskDelete} aria-label="Supprimer" title="Supprimer" className="flex size-9 items-center justify-center rounded-full bg-destructive/10 text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&>svg]:size-4">
                     <Trash2 />
                 </button>
+                </>)}
             </header>
 
-            {confirming && (
+            {canEdit && confirming && (
                 <div role="alertdialog" aria-label="Supprimer cette offre ?" className="mx-4 mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2.5">
                     <IconCircle tone="danger"><Trash2 /></IconCircle>
                     <div className="min-w-0 flex-1">
@@ -64,10 +68,12 @@ export function OfferCard({ offer: o, busy, confirming, onEdit, onAskDelete, onC
           <IconCircle tone="primary" size="sm"><Inbox /></IconCircle>
             {o.applicationsCount ?? 0} candidature(s)
         </span>
-                <button disabled={busy} onClick={onApply} className={`${btnPrimary} ml-auto`}>
-                    <CheckIcon className="size-[18px]" />
-                    Postuler
-                </button>
+                {canApply && (
+                    <button disabled={busy} onClick={onApply} className={`${btnPrimary} ml-auto`}>
+                        <CheckIcon className="size-[18px]" />
+                        Postuler
+                    </button>
+                )}
             </div>
         </article>
     );

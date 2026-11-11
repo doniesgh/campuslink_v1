@@ -1,4 +1,4 @@
-export const API = "http://localhost:4000/api/opportunities";
+export const API = "/bff/opportunities"; // relais Next.js : ajoute le jeton de session
 export const OFFERS_KEY = "announcements-offers";
 export const APPS_KEY = "announcements-apps";
 export const FILES_BASE = "http://localhost:4000";

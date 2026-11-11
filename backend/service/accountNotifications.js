@@ -3,8 +3,8 @@ const User = require('../models/userModel');
 const { notifyUsers, notifyUsersInBackground } = require('./notificationService');
 
 const ROLE_LABELS = {
-  fr: { STUDENT: 'Étudiant', TEACHER: 'Enseignant', ADMIN: 'Admin', ALUMNI: 'Alumni' },
-  en: { STUDENT: 'Student', TEACHER: 'Teacher', ADMIN: 'Admin', ALUMNI: 'Alumni' },
+  fr: { STUDENT: 'Étudiant', TEACHER: 'Enseignant', ADMIN: 'Admin', ALUMNI: 'Alumni', COMPANY: 'Entreprise' },
+  en: { STUDENT: 'Student', TEACHER: 'Teacher', ADMIN: 'Admin', ALUMNI: 'Alumni', COMPANY: 'Company' },
 };
 
 const roleLabel = (locale, role) => (ROLE_LABELS[locale] ?? ROLE_LABELS.en)[role] ?? role;

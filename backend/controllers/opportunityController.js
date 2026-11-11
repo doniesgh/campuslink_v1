@@ -1,6 +1,15 @@
 const Opportunity = require('../models/Opportunity');
 const Application = require('../models/Application');
 
+// Champs qu'un recruteur peut renseigner (author et status ne viennent jamais du client).
+const OFFER_FIELDS = ['title', 'description', 'type', 'domain', 'duration', 'location', 'contractType', 'level', 'filiere', 'company'];
+const pickOfferFields = (body = {}) =>
+  Object.fromEntries(OFFER_FIELDS.filter((k) => body[k] !== undefined).map((k) => [k, body[k]]));
+
+const isAdmin = (user) => user.role === 'ADMIN';
+/** Un recruteur ne gère que ses offres ; un admin gère tout. */
+const ownsOffer = (user, offer) => isAdmin(user) || (!!offer?.author && String(offer.author) === String(user._id));
+
 // ---------- Offres ----------
 /*exports.getOpportunities = async (req, res) => {
   try {
@@ -49,22 +58,28 @@ exports.getOpportunities = async (req, res) => {
 
 exports.createOpportunity = async (req, res) => {
   try {
-    const o = await Opportunity.create({ ...req.body, status: 'approved' });
+    const o = await Opportunity.create({ ...pickOfferFields(req.body), author: req.user._id, status: 'approved' });
     res.status(201).json(o);
   } catch (e) { res.status(400).json({ message: e.message }); }
 };
 
 exports.updateOpportunity = async (req, res) => {
   try {
-    const o = await Opportunity.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const o = await Opportunity.findById(req.params.id);
     if (!o) return res.status(404).json({ message: 'Introuvable' });
+    if (!ownsOffer(req.user, o)) return res.status(403).json({ message: 'Cette offre ne vous appartient pas' });
+    o.set(pickOfferFields(req.body));
+    await o.save();
     res.json(o);
   } catch (e) { res.status(400).json({ message: e.message }); }
 };
 
 exports.deleteOpportunity = async (req, res) => {
   try {
-    await Opportunity.findByIdAndDelete(req.params.id);
+    const o = await Opportunity.findById(req.params.id);
+    if (!o) return res.status(404).json({ message: 'Introuvable' });
+    if (!ownsOffer(req.user, o)) return res.status(403).json({ message: 'Cette offre ne vous appartient pas' });
+    await o.deleteOne();
     res.json({ message: 'Supprimée' });
   } catch (e) { res.status(500).json({ message: e.message }); }
 };
@@ -87,6 +102,7 @@ exports.apply = async (req, res) => {
     if (!opp) return res.status(404).json({ message: 'Offre introuvable' });
     const application = await Application.create({
       opportunity: opp._id,
+      student: req.user._id,
       coverLetter: req.body.coverLetter || '',
       cvUrl: req.file ? `/uploads/cv/${req.file.filename}` : '',
     });
@@ -96,21 +112,43 @@ exports.apply = async (req, res) => {
   }
 };
 
+// « Où j'ai postulé » : les candidatures de l'étudiant connecté.
 exports.getMyApplications = async (req, res) => {
   try {
-    res.json(await Application.find().populate('opportunity'));
+    res.json(await Application.find({ student: req.user._id }).sort({ createdAt: -1 }).populate('opportunity'));
+  } catch (e) { res.status(500).json({ message: e.message }); }
+};
+
+// « Demandes » : les candidatures reçues pour les offres du recruteur connecté (toutes pour un admin).
+exports.getReceivedApplications = async (req, res) => {
+  try {
+    let filter = {};
+    if (!isAdmin(req.user)) {
+      const mine = await Opportunity.find({ author: req.user._id }).select('_id');
+      filter = { opportunity: { $in: mine.map((o) => o._id) } };
+    }
+    res.json(await Application.find(filter).sort({ createdAt: -1 }).populate('opportunity'));
   } catch (e) { res.status(500).json({ message: e.message }); }
 };
 
 exports.getApplicationsOfOpportunity = async (req, res) => {
   try {
-    res.json(await Application.find({ opportunity: req.params.id }));
+    const o = await Opportunity.findById(req.params.id);
+    if (!o) return res.status(404).json({ message: 'Introuvable' });
+    if (!ownsOffer(req.user, o)) return res.status(403).json({ message: 'Cette offre ne vous appartient pas' });
+    res.json(await Application.find({ opportunity: o._id }).sort({ createdAt: -1 }));
   } catch (e) { res.status(500).json({ message: e.message }); }
 };
 
 exports.updateApplicationStatus = async (req, res) => {
   try {
-    res.json(await Application.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true }));
+    const a = await Application.findById(req.params.id).populate('opportunity');
+    if (!a) return res.status(404).json({ message: 'Candidature introuvable' });
+    // Offre supprimée (opportunity null) : seul un admin peut encore traiter la candidature.
+    if (!ownsOffer(req.user, a.opportunity)) return res.status(403).json({ message: "Cette candidature ne concerne pas l'une de vos offres" });
+    a.status = req.body.status;
+    await a.save(); // la validation refuse un statut hors liste
+    res.json(a);
   } catch (e) { res.status(400).json({ message: e.message }); }
 };
 
@@ -147,7 +185,8 @@ exports.deleteApplication = async (req, res) => {
 };*/
 exports.deleteApplication = async (req, res) => {
   try {
-    const application = await Application.findByIdAndDelete(req.params.id);
+    // Un étudiant ne peut annuler que ses propres candidatures.
+    const application = await Application.findOneAndDelete({ _id: req.params.id, student: req.user._id });
 
     if (!application) {
       return res.status(404).json({

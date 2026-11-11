@@ -1,8 +1,8 @@
 // Shapes returned by the CampusLink backend (see docs/phase1-contract.md).
 // Usable from Server and Client Components (types only, no runtime code apart from constants).
 
-export type Role = "STUDENT" | "TEACHER" | "ADMIN" | "ALUMNI";
-export const ROLES: readonly Role[] = ["STUDENT", "TEACHER", "ADMIN", "ALUMNI"];
+export type Role = "STUDENT" | "TEACHER" | "ADMIN" | "ALUMNI" | "COMPANY";
+export const ROLES: readonly Role[] = ["STUDENT", "TEACHER", "ADMIN", "ALUMNI", "COMPANY"];
 
 export type Locale = "fr" | "en";
 

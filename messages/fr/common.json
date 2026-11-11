@@ -15,7 +15,8 @@
     "STUDENT": "Étudiant",
     "TEACHER": "Enseignant",
     "ADMIN": "Admin",
-    "ALUMNI": "Alumni"
+    "ALUMNI": "Alumni",
+    "COMPANY": "Entreprise"
   },
   "actions": {
     "save": "Enregistrer",

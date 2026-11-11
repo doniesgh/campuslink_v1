@@ -3,10 +3,14 @@
 import { useMemo, useState } from "react";
 import { CloseIcon, SearchIcon } from "@/components/forum/icons";
 import { OFFER_TYPES, TYPE_LABEL, type Offer } from "@/lib/opportunities/types";
+import { canApply } from "@/lib/opportunities/roles";
+import type { Role } from "@/lib/types";
 import { Empty, Pill } from "./common";
 import { OfferCard } from "./offer-card";
 
 type Props = {
+    userId: string;
+    role: Role;
     offers: Offer[];
     busy: boolean;
     confirmId: string | null;
@@ -16,7 +20,7 @@ type Props = {
     onApply: (id: string) => void;
 };
 
-export function OffersTab({ offers, busy, confirmId, setConfirmId, onEdit, onDelete, onApply }: Props) {
+export function OffersTab({ userId, role, offers, busy, confirmId, setConfirmId, onEdit, onDelete, onApply }: Props) {
     const [q, setQ] = useState("");
     const [typeFilter, setTypeFilter] = useState("");
 
@@ -58,12 +62,14 @@ export function OffersTab({ offers, busy, confirmId, setConfirmId, onEdit, onDel
 
             <p className="text-center text-sm text-muted-foreground">{visible.length} offre(s)</p>
 
-            {visible.length === 0 && <Empty icon={<SearchIcon />} title="Aucune offre" hint="Essayez un autre filtre ou ajoutez une offre." />}
+            {visible.length === 0 && <Empty icon={<SearchIcon />} title="Aucune offre" hint="Essayez un autre filtre." />}
 
             {visible.map((o) => (
                 <OfferCard
                     key={o._id}
                     offer={o}
+                    canEdit={role === "ADMIN" || (!!o.author && o.author === userId)}
+                    canApply={canApply(role)}
                     busy={busy}
                     confirming={confirmId === o._id}
                     onEdit={() => onEdit(o)}

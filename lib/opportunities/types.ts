@@ -6,6 +6,7 @@ export type Offer = {
     location?: string;
     description?: string;
     applicationsCount?: number;
+    author?: string; // id du recruteur qui a publié l'offre
     createdAt?: string;
 };
 
