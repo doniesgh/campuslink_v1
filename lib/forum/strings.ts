@@ -131,7 +131,7 @@ export const S = {
   usePrice: (p: number) => `Use ${p} DT`,
   fairPrice: "Fair price",
   aboveShare: "Above the fair share",
-  estimatedRoute: "Estimated route (straight line × 1.3): the routing service is unreachable.",
+  // estimatedRoute: "Estimated route (straight line × 1.3): the routing service is unreachable.",
   located: "Place found on the map",
   searchingPlaces: "Searching places…",
   noPlaces: "No place found. You can still type it freely.",

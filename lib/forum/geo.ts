@@ -27,7 +27,7 @@ export const GEO_COUNTRY = "tn";
 
 /** Hypothèses du prix proposé (dinars tunisiens). À ajuster selon les prix réels. */
 export const TRIP_COST = {
-  pricePerKm: 1, // prix conseillé par place, en DT par kilomètre
+  pricePerKm: 0.5, // prix conseillé par place, en DT par kilomètre
   fuelPricePerL: 2.5, // prix du litre de carburant
   litresPer100Km: 7, // consommation moyenne
   wearPerKm: 0.1, // usure, pneus, entretien

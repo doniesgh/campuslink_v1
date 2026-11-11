@@ -13,6 +13,30 @@ function notify(req, userId, event, payload) {
   } catch (_) { /* sans effet sur la réponse */ }
 }
 
+// GET /api/posts/reservations/received
+// Toutes les demandes reçues par le conducteur
+exports.getReceivedReservations = async (req, res) => {
+  try {
+    const reservations = await Reservation.find({
+      driver: req.user._id
+    })
+      .sort({ createdAt: -1 })
+      .populate('passenger', 'firstname lastname avatar')
+      .populate('post', 'title status covoiturage')
+      .lean();
+
+    return res.json(reservations);
+
+  } catch (err) {
+    console.error('[reservation] getReceivedReservations:', err);
+
+    return res.status(500).json({
+      message: 'Erreur serveur',
+      error: err.message
+    });
+  }
+};
+
 // POST /api/posts/:id/reservations   { seats, message }
 // exports.requestSeat = async (req, res) => {
 //     console.log('[reservation] requestSeat reçu', req.params.id, req.body, req.user && req.user._id);

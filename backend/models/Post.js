@@ -12,15 +12,7 @@ const postSchema = new mongoose.Schema(
     images: [{ type: String }], // URLs (upload géré ailleurs : multer / cloudinary...)
     location: { type: String, trim: true },
 
-    // --- Covoiturage ---
-    // covoiturage: {
-    //   departure: String,
-    //   destination: String,
-    //   departureDate: Date,
-    //   seats: { type: Number, min: 1, max: 8 },
-    //   price: { type: Number, min: 0, default: 0 },
-    //   contactPhone: String,
-    // },
+ 
     covoiturage: {
       departure: String,
       destination: String,

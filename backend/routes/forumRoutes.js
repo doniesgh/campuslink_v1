@@ -43,7 +43,7 @@ router.get('/reservations/me', requireAuth, reservation.getMyReservations);
 router.put('/reservations/:rid', requireAuth, reservation.updateReservation); // accept | reject | cancel
 router.get('/:id/reservations', requireAuth, reservation.listForPost);
 router.post('/:id/reservations', requireAuth, reservation.requestSeat);
-
+router.get('/reservations/received',requireAuth,reservation.getReceivedReservations);
 // ---------- Matching ----------
 router.get('/:id/matches', requireAuth, match.getMatches);           // objets perdus/trouvés
 router.get('/:id/compatible', requireAuth, match.getCompatibleRides); // covoiturages compatibles

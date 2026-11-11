@@ -73,7 +73,7 @@ export function PostCard({
   const [busy, setBusy] = useState(false);
   const [reserving, setReserving] = useState(false);
   const [error, setError] = useState("");
-
+  const [showSuccess, setShowSuccess] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -119,8 +119,7 @@ export function PostCard({
 
       console.log("Reservation:", result);
 
-      alert("Votre demande a été envoyée !");
-
+      setShowSuccess(true);
     } catch (e) {
       if (e instanceof BffError && e.status === 409) {
         setError(e.message);
@@ -562,6 +561,40 @@ export function PostCard({
           onChanged={refreshCounts}
         />
       )}
+      {/* SUCCESS POPUP */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+
+          <div className="w-full max-w-sm animate-in zoom-in-95 fade-in duration-300 rounded-2xl border border-border bg-card p-6 text-center shadow-2xl">
+
+            {/* SUCCESS ICON */}
+            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+              <CheckCircleIcon className="size-9 text-green-600 dark:text-green-400" />
+            </div>
+
+            {/* TITLE */}
+            <h2 className="text-xl font-bold text-foreground">
+              Demande envoyée !
+            </h2>
+
+            {/* MESSAGE */}
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Votre demande de réservation a été envoyée avec succès.
+              Vous serez informé lorsque l'organisateur répondra.
+            </p>
+
+            {/* BUTTON */}
+            <button
+              onClick={() => setShowSuccess(false)}
+              className="mt-6 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+            >
+              Parfait !
+            </button>
+
+          </div>
+        </div>
+      )}
     </article>
+
   );
 }
