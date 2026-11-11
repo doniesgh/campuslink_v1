@@ -6,6 +6,7 @@ import type { Offer } from "@/lib/opportunities/types";
 import { timeAgo } from "@/lib/forum/format";
 import { btnDanger, btnPrimary, btnSm } from "@/lib/forum/ui";
 import { TypeBadge } from "./badges";
+import { useState } from "react";
 import { OfferSummaryBox } from "./offer-summary";
 type Props = {
     offer: Offer;
@@ -21,6 +22,10 @@ type Props = {
 };
 
 export function OfferCard({ offer: o, canEdit, canApply, busy, confirming, onEdit, onAskDelete, onCancelDelete, onDelete, onApply }: Props) {
+    const [expanded, setExpanded] = useState(false);
+    const text: string = o.description ?? "";
+    const lineCount: number = text.split(/\r?\n/).length;
+    const isLong: boolean = text.length > 180 || lineCount > 3;
     return (
         <article className="overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm">
             <header className="flex items-center gap-3 px-4 py-3">
@@ -60,8 +65,27 @@ export function OfferCard({ offer: o, canEdit, canApply, busy, confirming, onEdi
                     <button onClick={onCancelDelete} className={btnSm}>Annuler</button>
                 </div>
             )}
-
-            {o.description && <p className="line-clamp-3 whitespace-pre-line break-words px-4 pb-4 text-sm leading-relaxed">{o.description}</p>}
+            {o.description && (
+                <div className="px-4 pb-4">
+                    <p
+                        className={`whitespace-pre-line break-words text-sm leading-relaxed ${
+                            expanded ? "max-h-96 overflow-y-auto pr-1" : "line-clamp-3"
+                        }`}
+                    >
+                        {o.description}
+                    </p>
+                    {isLong && (
+                        <button
+                            type="button"
+                            onClick={() => setExpanded((v) => !v)}
+                            aria-expanded={expanded}
+                            className="mt-1 text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            {expanded ? "Voir moins" : "Voir plus"}
+                        </button>
+                    )}
+                </div>
+            )}
             {o.description && <OfferSummaryBox offerId={o._id} />}
             <div className="flex items-center gap-2 border-t border-border px-3 py-2 text-sm text-muted-foreground">
         <span className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3" title="Candidatures">
