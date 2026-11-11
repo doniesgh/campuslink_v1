@@ -11,9 +11,10 @@ type Props = {
     manage: boolean; // true : onglet « Demandes », false : « Où j'ai postulé »
     busy: boolean;
     onStatus: (id: string, status: AppStatus) => void;
+    onDelete: (id: string)=> void;
 };
 
-export function ApplicationsTab({ apps, manage, busy, onStatus }: Props) {
+export function ApplicationsTab({ apps, manage, busy, onStatus, onDelete }: Props) {
     let emptyState;
 
     if (manage) {
@@ -52,7 +53,9 @@ export function ApplicationsTab({ apps, manage, busy, onStatus }: Props) {
                         manage={manage}
                         busy={busy}
                         onStatus={onStatus}
+                        onDelete={onDelete}
                     />
+
                 ))}
         </>
     );

@@ -70,7 +70,7 @@ exports.deleteOpportunity = async (req, res) => {
 };
 
 // ---------- Candidatures ----------
-exports.apply = async (req, res) => {
+/*exports.apply = async (req, res) => {
   try {
     const a = await Application.create({
       opportunity: req.params.id,
@@ -79,6 +79,21 @@ exports.apply = async (req, res) => {
     });
     res.status(201).json(a);
   } catch (e) { res.status(400).json({ message: e.message }); }
+};*/
+//remplacé par :
+exports.apply = async (req, res) => {
+  try {
+    const opp = await Opportunity.findById(req.params.id);
+    if (!opp) return res.status(404).json({ message: 'Offre introuvable' });
+    const application = await Application.create({
+      opportunity: opp._id,
+      coverLetter: req.body.coverLetter || '',
+      cvUrl: req.file ? `/uploads/cv/${req.file.filename}` : '',
+    });
+    res.status(201).json(application);
+  } catch (e) {
+    res.status(500).json({ message: e.message });
+  }
 };
 
 exports.getMyApplications = async (req, res) => {
@@ -97,4 +112,57 @@ exports.updateApplicationStatus = async (req, res) => {
   try {
     res.json(await Application.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true }));
   } catch (e) { res.status(400).json({ message: e.message }); }
+};
+
+/*
+exports.deleteApplication = async (req, res) => {
+  try {
+    const application = await Application.findById(req.params.id);
+
+    if (!application) {
+      return res.status(404).json({
+        message: "Candidature introuvable"
+      });
+    }
+
+    // Vérifier que l'utilisateur connecté est propriétaire
+    if (application.student.toString() !== req.user.id) {
+      return res.status(403).json({
+        message: "Vous ne pouvez pas supprimer cette candidature"
+      });
+    }
+
+   // await application.deleteOne();
+
+    return res.status(200).json({
+      message: "Candidature annulée avec succès"
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      message: "Erreur lors de l'annulation de la candidature",
+      error: error.message
+    });
+  }
+};*/
+exports.deleteApplication = async (req, res) => {
+  try {
+    const application = await Application.findByIdAndDelete(req.params.id);
+
+    if (!application) {
+      return res.status(404).json({
+        message: "Candidature introuvable"
+      });
+    }
+
+    return res.status(200).json({
+      message: "Candidature supprimée avec succès"
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      message: "Erreur lors de la suppression de la candidature",
+      error: error.message
+    });
+  }
 };

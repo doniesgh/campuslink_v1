@@ -1,5 +1,6 @@
 "use client";
-
+import { ApplyForm } from "@/components/opportunities/apply-form";
+import { API, APPS_KEY, OFFERS_KEY, flushQueue, getCached, send, sendForm } from "@/lib/opportunities/api";
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ApplicationsTab } from "@/components/opportunities/applications-tab";
 import { Pill } from "@/components/opportunities/common";
@@ -7,7 +8,6 @@ import { BriefcaseIcon, InboxIcon } from "@/components/opportunities/icons";
 import { OfferForm } from "@/components/opportunities/offer-form";
 import { OffersTab } from "@/components/opportunities/offers-tab";
 import { IconCircle, PlusIcon, SendIcon } from "@/components/forum/icons";
-import { API, APPS_KEY, OFFERS_KEY, flushQueue, getCached, send } from "@/lib/opportunities/api";
 import { useOffline } from "@/lib/opportunities/use-offline";
 import { emptyForm, type AppStatus, type Application, type Offer, type Tab } from "@/lib/opportunities/types";
 
@@ -25,7 +25,8 @@ export default function Announcements() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const { online, pending } = useOffline();
-
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+  const applyingOffer = offers.find((o) => o._id === applyingId);
   const loadAll = useCallback(async () => {
     const [o, a]: [Offer[] | null, Application[] | null] = await Promise.all([
       getCached<Offer[]>(API, OFFERS_KEY),
@@ -61,7 +62,7 @@ export default function Announcements() {
   }, [online, loadAll]);
 
   /** Exécute une action puis recharge les données. */
-  async function run(action: () => Promise<void>) {
+    async function run(action: () => Promise<unknown>) {
     setBusy(true);
     try {
       await action();
@@ -79,6 +80,10 @@ export default function Announcements() {
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  const handleDelete = (id: string) =>
+      run(async () => {
+        await send(`${API}/applications/${id}`, "DELETE");
+      });
 
   const closeForm = () => {
     setShowForm(false);
@@ -107,10 +112,25 @@ export default function Announcements() {
         setConfirmId(null);
       });
 
-  const apply = (id: string) => {
+ /* const apply = (id: string) => {
     const coverLetter = window.prompt("Message de motivation (optionnel)") ?? undefined;
     run(() => send(`${API}/${id}/apply`, "POST", { coverLetter }));
-  };
+  };*/
+  const apply = (id: string) => setApplyingId(id);
+
+  const submitApply = (coverLetter: string, cv: File | null) =>
+      run(async () => {
+        if (!applyingId) return;
+        if (cv) {
+          const fd = new FormData();
+          fd.append("coverLetter", coverLetter);
+          fd.append("cv", cv);
+          await sendForm(`${API}/${applyingId}/apply`, fd);
+        } else {
+          await send(`${API}/${applyingId}/apply`, "POST", { coverLetter });
+        }
+        setApplyingId(null);
+      });
 
   const setAppStatus = (id: string, status: AppStatus) =>
       run(() => send(`${API}/applications/${id}/status`, "PATCH", { status }));
@@ -171,8 +191,8 @@ export default function Announcements() {
               </>
           )}
 
-          {!loading && tab === "requests" && <ApplicationsTab apps={apps} manage busy={busy} onStatus={setAppStatus} />}
-          {!loading && tab === "mine" && <ApplicationsTab apps={apps} manage={false} busy={busy} onStatus={setAppStatus} />}
+          {!loading && tab === "requests" && <ApplicationsTab apps={apps} manage busy={busy} onStatus={setAppStatus} onDelete={handleDelete} />}
+          {!loading && tab === "mine" && <ApplicationsTab apps={apps} manage={false} busy={busy} onStatus={setAppStatus} onDelete={handleDelete} />}
         </section>
 
         {tab === "offers" && !showForm && (
@@ -186,6 +206,15 @@ export default function Announcements() {
             Nouvelle offre
           </span>
             </button>
+        )}
+        {applyingOffer && (
+            <ApplyForm
+                title={applyingOffer.title}
+                online={online}
+                busy={busy}
+                onSubmit={submitApply}
+                onCancel={() => setApplyingId(null)}
+            />
         )}
       </div>
   );

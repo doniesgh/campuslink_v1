@@ -14,9 +14,10 @@ export type AppStatus = "envoyee" | "en_cours" | "acceptee" | "refusee";
 export type Application = {
     _id: string;
     opportunity: Offer | null; // null si l'offre a été supprimée
-    coverLetter?: string;
     status: AppStatus;
     createdAt: string;
+    cvUrl?: string;
+    coverLetter?: string;
 };
 
 export type Tab = "offers" | "requests" | "mine";

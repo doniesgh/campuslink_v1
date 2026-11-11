@@ -1,7 +1,13 @@
 export const API = "http://localhost:4000/api/opportunities";
 export const OFFERS_KEY = "announcements-offers";
 export const APPS_KEY = "announcements-apps";
+export const FILES_BASE = "http://localhost:4000";
 
+/** Envoi avec fichier (multipart). Pas d'en-tête Content-Type : le navigateur le fixe. */
+export async function sendForm(url: string, body: FormData): Promise<void> {
+    const res = await fetch(url, { method: "POST", body });
+    if (!res.ok) throw new Error(`Erreur ${res.status}`);
+}
 /** Lit l'API et garde une copie dans localStorage ; sans réseau, renvoie la dernière copie. */
 export async function getCached<T>(url: string, key: string): Promise<T | null> {
     try {

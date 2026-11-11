@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { ChevronRight, Home, LayoutGrid, Menu, WifiOff } from "lucide-react";
 import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { BriefcaseBusiness } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -31,6 +32,9 @@ export default function SiteHeader() {
     { title: t("home"), href: "/", icon: Home },
     { title: t("modules"), href: "/#modules", icon: LayoutGrid },
     { title: t("offline"), href: "/#offline", icon: WifiOff },
+    { title: "opportunités", href: "/dashboard/announcements", icon: BriefcaseBusiness },
+  /*  { title: "Emploi du temps", href: "/dashboard/announcements", icon: BriefcaseBusiness },*/
+
   ];
 
   React.useEffect(() => {

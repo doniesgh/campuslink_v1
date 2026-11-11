@@ -3,8 +3,17 @@
 import * as React from "react";
 import Link from "@/components/ui/app-link";
 import { usePathname } from "next/navigation";
-import { Bell, House, Menu, MessagesSquare, ScrollText, UserRound, Users, type LucideIcon } from "lucide-react";
-import { useTranslations } from "next-intl";
+import {
+  Bell,
+  House,
+  Menu,
+  MessagesSquare,
+  ScrollText,
+  UserRound,
+  Users,
+  Megaphone,
+  type LucideIcon,
+} from "lucide-react";import { useTranslations } from "next-intl";
 import { useUnreadCount } from "@/components/notifications/use-unread-count";
 import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { AppBadge } from "@/components/pwa/app-badge";
@@ -23,6 +32,8 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   account: UserRound,
   users: Users,
   audit: ScrollText,
+  announcements: Megaphone,
+
 };
 
 export type ShellUser = { firstname: string; lastname: string; email: string; role: Role };
