@@ -57,9 +57,9 @@ app.use('/api/timetable', timetableRoutes);
 // Forum: /api/posts/... and /api/comments/:id.
 app.use('/api/posts', forumRoutes);
 
-
-
-
+app.get('/', (req, res) => {
+  res.send('hello');
+});
 app.use(errorHandler);
 app.use((req, res, next) => {
   const requestId = Date.now();
