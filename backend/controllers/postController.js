@@ -10,7 +10,17 @@ const EDITABLE = [
   'title', 'description', 'tags', 'images', 'location',
   'covoiturage', 'objetPerdu', 'status',
 ];
+// Vérifie si l'utilisateur est l'auteur du contenu ou un administrateur
+const assertCanManage = (user, document) => {
+  const isOwner = document.author.equals(user._id);
+  const isAdmin = user.role === 'ADMIN';
 
+  if (!isOwner && !isAdmin) {
+    const error = new Error('Action non autorisée');
+    error.status = 403;
+    throw error;
+  }
+};
 // POST /api/posts
 exports.createPost = async (req, res) => {
   try {
@@ -88,7 +98,7 @@ exports.getPost = async (req, res) => {
     const post = await Post.findByIdAndUpdate(
       req.params.id,
       { $inc: { views: 1 } },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate("author", "firstname lastname name avatar");
 
     if (!post) {
@@ -354,3 +364,4 @@ exports.getMatches = async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur', error: err.message });
   }
 };
+exports.assertCanManage = assertCanManage;

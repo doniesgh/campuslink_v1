@@ -10,8 +10,10 @@ import { STATUSES, type Post, type PostComment, type PostStatus } from "@/lib/fo
 import { btnDanger, btnDangerGhost, btnSm, panel } from "@/lib/forum/ui";
 import { STATUS_ICONS, StatusBadge, TypeBadge } from "./badges";
 import { ArrowLeftIcon, CommentIcon, EyeIcon, HeartIcon, IconCircle, TrashIcon } from "./icons";
+import { CompatibleRidesPanel } from "./compatible-rides-panel";
 import { MatchesPanel } from "./matches-panel";
 import { PostMedia } from "./post-media";
+import { ReservationPanel } from "./reservation-panel";
 import { TripPanel } from "./trip-panel";
 
 export function PostDetail({ id }: { id: string }) {
@@ -98,7 +100,7 @@ export function PostDetail({ id }: { id: string }) {
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {confirmComment === c._id ? (
             <>
-              <button disabled={busy} onClick={() => run(() => bff(`/comments/${c._id}`, { method: "DELETE" }))} className={btnDanger}>{S.confirmDelete}</button>
+              <button disabled={busy} onClick={() => run(() => bff(`/posts/comments/${c._id}`, { method: "DELETE" }))} className={btnDanger}>{S.confirmDelete}</button>
               <button onClick={() => setConfirmComment(null)} className={btnSm}>{S.cancel}</button>
               {!isReply && <span className="text-xs text-muted-foreground">{S.deleteCommentWarn}</span>}
             </>
@@ -149,6 +151,8 @@ export function PostDetail({ id }: { id: string }) {
         </article>
 
         {post.type === "objet_perdu" && post.status === "active" && <MatchesPanel postId={post._id} basePath={listPath} />}
+        {post.type === "covoiturage" && <div id="reservation"><ReservationPanel post={post} onChanged={load} /></div>}
+        {post.type === "covoiturage" && <CompatibleRidesPanel post={post} basePath={listPath} />}
 
         <section aria-labelledby="mod-comments" className={`${panel} p-6`}>
           <h3 id="mod-comments" className="mb-4 flex items-center gap-2 text-base font-semibold">

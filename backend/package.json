@@ -4,7 +4,7 @@
   "description": "CampusLink REST API (Express + MongoDB)",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
+    "start": "nodemon app",
     "dev": "nodemon app.js",
     "create-admin": "node scripts/create-admin.js",
     "generate-vapid": "node scripts/generate-vapid.js",

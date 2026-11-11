@@ -73,7 +73,7 @@ export function CommentsThread({ postId, onChanged }: { postId: string; onChange
     if (!content) return;
     setBusy(true);
     try {
-      await bff(`/comments/${id}`, { method: "PUT", json: { content } });
+      await bff(`/posts/comments/${id}`, { method: "PUT", json: { content } });
       setEditId(null);
       await load();
     } catch (err) {
@@ -87,7 +87,7 @@ export function CommentsThread({ postId, onChanged }: { postId: string; onChange
   async function remove(id: string) {
     setBusy(true);
     try {
-      await bff(`/comments/${id}`, { method: "DELETE" });
+      await bff(`/posts/comments/${id}`, { method: "DELETE" });
       setConfirmId(null);
       await load();
       onChanged();

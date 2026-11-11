@@ -29,8 +29,9 @@ const corsOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3000')
   .filter(Boolean);
 
 const app = express();
+app.use(logger);
+
 app.disable('x-powered-by');
-// req.ip is the real client IP behind the Next.js BFF / a reverse proxy (TRUST_PROXY, default "loopback").
 app.set('trust proxy', trustProxySetting());
 
 // Requests without an Origin header (mobile app, curl) are not affected by CORS.
@@ -40,7 +41,6 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '1mb' }));
-app.use(logger);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
@@ -58,11 +58,26 @@ app.use('/api/timetable', timetableRoutes);
 app.use('/api/posts', forumRoutes);
 
 
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found', code: 'NOT_FOUND' });
-});
+
 
 app.use(errorHandler);
+app.use((req, res, next) => {
+  const requestId = Date.now();
+  const label = `Request ${req.method} ${req.path} ${requestId}`;
+
+  // res.setHeader('Access-Control-Allow-Origin', 'https://172.16.0.35:8443');
+  // res.setHeader('Access-Control-Allow-Headers', '*');
+  // res.header('Access-Control-Allow-Credentials', true);
+
+  console.time(label);
+  console.log(`Incoming request: ${req.method} ${req.path}`);
+
+  res.on('finish', () => {
+    console.timeEnd(label);
+  });
+
+  next();
+});
 
 const start = async () => {
   const missing = REQUIRED_ENV.filter((name) => !process.env[name]);
