@@ -89,3 +89,14 @@ export async function flushQueue(): Promise<number> {
     }
     return sent;
 }
+export type OfferSummary = { summary: string; keyPoints: string[] };
+
+export async function fetchSummary(id: string): Promise<OfferSummary> {
+    if (!navigator.onLine) throw new Error("Le résumé nécessite une connexion.");
+    const res = await fetch(`${API}/${id}/summary`, { method: "POST" });
+    const body = await res.json().catch(() => null);
+    if (res.status === 503) throw new Error("Le résumé IA n'est pas disponible pour le moment.");
+    if (res.status === 429) throw new Error("Trop de demandes, réessayez plus tard.");
+    if (!res.ok) throw new Error(body?.message ?? `Erreur ${res.status}`);
+    return body as OfferSummary;
+}

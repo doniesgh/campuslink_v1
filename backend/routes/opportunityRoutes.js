@@ -39,4 +39,12 @@ router.delete('/:id', requireRole(...RECRUITERS), c.deleteOpportunity);
 router.post('/:id/apply', requireRole(...APPLICANTS), uploadCv, c.apply);
 router.get('/:id/applications', requireRole(...RECRUITERS), c.getApplicationsOfOpportunity);
 
+const { userRateLimit } = require('../middleware/rateLimit');
+const summaryRateLimit = userRateLimit({
+  name: 'offer-summary', limitEnv: 'RATE_LIMIT_AI_MAX', defaultLimit: 30, defaultWindowMs: 60 * 60 * 1000,
+});
+
+// après la route apply
+router.post('/:id/summary', summaryRateLimit, c.summarizeOpportunity);
+
 module.exports = router;

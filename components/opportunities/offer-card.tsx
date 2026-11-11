@@ -6,7 +6,7 @@ import type { Offer } from "@/lib/opportunities/types";
 import { timeAgo } from "@/lib/forum/format";
 import { btnDanger, btnPrimary, btnSm } from "@/lib/forum/ui";
 import { TypeBadge } from "./badges";
-
+import { OfferSummaryBox } from "./offer-summary";
 type Props = {
     offer: Offer;
     canEdit: boolean; // recruteur propriétaire de l'offre, ou admin
@@ -62,7 +62,7 @@ export function OfferCard({ offer: o, canEdit, canApply, busy, confirming, onEdi
             )}
 
             {o.description && <p className="line-clamp-3 whitespace-pre-line break-words px-4 pb-4 text-sm leading-relaxed">{o.description}</p>}
-
+            {o.description && <OfferSummaryBox offerId={o._id} />}
             <div className="flex items-center gap-2 border-t border-border px-3 py-2 text-sm text-muted-foreground">
         <span className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3" title="Candidatures">
           <IconCircle tone="primary" size="sm"><Inbox /></IconCircle>

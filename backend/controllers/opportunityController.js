@@ -1,7 +1,7 @@
 const Opportunity = require('../models/Opportunity');
 const Application = require('../models/Application');
 const storageService = require('../service/storageService');
-
+const { summarizeOffer } = require('../service/opportunitySummary')
 // Champs qu'un recruteur peut renseigner (author et status ne viennent jamais du client).
 const OFFER_FIELDS = ['title', 'description', 'type', 'domain', 'duration', 'location', 'contractType', 'level', 'filiere', 'company'];
 const pickOfferFields = (body = {}) =>
@@ -229,4 +229,13 @@ exports.deleteApplication = async (req, res) => {
       error: error.message
     });
   }
+};
+// Sans try/catch : les HttpError de l'IA (503, 429, 502) passent par errorHandler.
+exports.summarizeOpportunity = async (req, res) => {
+  const o = await Opportunity.findById(req.params.id).lean();
+  if (!o) return res.status(404).json({ message: 'Introuvable' });
+  if (!o.description || o.description.trim().length < 80) {
+    return res.status(422).json({ message: 'Description trop courte pour être résumée' });
+  }
+  res.json(await summarizeOffer(o));
 };
