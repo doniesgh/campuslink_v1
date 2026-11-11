@@ -1,11 +1,12 @@
 export const API = "/bff/opportunities"; // relais Next.js : ajoute le jeton de session
 export const OFFERS_KEY = "announcements-offers";
 export const APPS_KEY = "announcements-apps";
-export const FILES_BASE = "http://localhost:4000";
 
 /** Envoi avec fichier (multipart). Pas d'en-tête Content-Type : le navigateur le fixe. */
 export async function sendForm(url: string, body: FormData): Promise<void> {
     const res = await fetch(url, { method: "POST", body });
+    if (res.status === 413) throw new Error("CV trop lourd (5 Mo maximum).");
+    if (res.status === 415) throw new Error("Format de CV refusé : envoyez un PDF ou un DOCX.");
     if (!res.ok) throw new Error(`Erreur ${res.status}`);
 }
 /** Lit l'API et garde une copie dans localStorage ; sans réseau, renvoie la dernière copie. */

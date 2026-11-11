@@ -17,7 +17,7 @@ export type Application = {
     opportunity: Offer | null; // null si l'offre a été supprimée
     status: AppStatus;
     createdAt: string;
-    cvUrl?: string;
+    cv?: { filename: string; mimeType?: string; size?: number }; // le fichier se télécharge via /applications/:id/cv
     coverLetter?: string;
 };
 

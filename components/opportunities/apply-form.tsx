@@ -53,10 +53,10 @@ export function ApplyForm({ title, online, busy, onSubmit, onCancel }: Props) {
                 </label>
 
                 <label className="block space-y-1.5">
-                    <span className="text-sm font-medium">CV (PDF, DOC, DOCX, 5 Mo max)</span>
+                    <span className="text-sm font-medium">CV (PDF ou DOCX, 5 Mo max)</span>
                     <input
                         type="file"
-                        accept=".pdf,.doc,.docx"
+                        accept=".pdf,.docx"
                         disabled={!online}
                         onChange={(e) => pick(e.target.files?.[0] ?? null)}
                         className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground disabled:opacity-50"

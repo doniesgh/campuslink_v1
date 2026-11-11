@@ -7,7 +7,7 @@ import type { AppStatus, Application } from "@/lib/opportunities/types";
 import { timeAgo } from "@/lib/forum/format";
 import { btnSm } from "@/lib/forum/ui";
 import { StatusBadge, TypeBadge } from "./badges";
-import { FILES_BASE } from "@/lib/opportunities/api";
+import { API } from "@/lib/opportunities/api";
 
 type Props = {
     app: Application;
@@ -69,15 +69,14 @@ export function ApplicationCard({
             )}
 
             {/* CV */}
-            {a.cvUrl && (
+            {a.cv && (
                 <div className="px-4 pb-4">
                     <a
-                        href={`${FILES_BASE}${a.cvUrl}`}
-                        target="_blank"
-                        rel="noreferrer"
+                        href={`${API}/applications/${a._id}/cv`}
+                        download={a.cv.filename}
                         className="inline-block text-sm font-medium text-primary underline"
                     >
-                        Voir le CV
+                        Télécharger le CV ({a.cv.filename})
                     </a>
                 </div>
             )}

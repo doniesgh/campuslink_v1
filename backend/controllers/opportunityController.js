@@ -1,5 +1,6 @@
 const Opportunity = require('../models/Opportunity');
 const Application = require('../models/Application');
+const storageService = require('../service/storageService');
 
 // Champs qu'un recruteur peut renseigner (author et status ne viennent jamais du client).
 const OFFER_FIELDS = ['title', 'description', 'type', 'domain', 'duration', 'location', 'contractType', 'level', 'filiere', 'company'];
@@ -97,19 +98,41 @@ exports.deleteOpportunity = async (req, res) => {
 };*/
 //remplacé par :
 exports.apply = async (req, res) => {
+  let stored = null;
   try {
     const opp = await Opportunity.findById(req.params.id);
     if (!opp) return res.status(404).json({ message: 'Offre introuvable' });
+    if (req.file) {
+      stored = await storageService.save({
+        buffer: req.file.buffer,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        folder: 'cv',
+      });
+    }
     const application = await Application.create({
       opportunity: opp._id,
       student: req.user._id,
       coverLetter: req.body.coverLetter || '',
-      cvUrl: req.file ? `/uploads/cv/${req.file.filename}` : '',
+      cv: stored ? { key: stored.key, filename: stored.filename, mimeType: stored.mimeType, size: stored.size } : undefined,
     });
     res.status(201).json(application);
   } catch (e) {
+    if (stored) await storageService.remove(stored.key).catch(() => {}); // pas de fichier orphelin si l'enregistrement échoue
     res.status(500).json({ message: e.message });
   }
+};
+
+// Télécharge le CV d'une candidature : l'étudiant qui a postulé, le recruteur de l'offre, ou un admin.
+// Pas de try/catch : les erreurs (404 fichier absent, id invalide) passent par errorHandler, en JSON.
+exports.downloadCv = async (req, res) => {
+  const a = await Application.findById(req.params.id).populate('opportunity');
+  if (!a || !a.cv?.key) return res.status(404).json({ message: 'CV introuvable' });
+  const isApplicant = !!a.student && String(a.student) === String(req.user._id);
+  if (!isApplicant && !ownsOffer(req.user, a.opportunity)) {
+    return res.status(403).json({ message: "Vous n'avez pas accès à ce CV" });
+  }
+  await storageService.sendFile(res, a.cv.key, { filename: a.cv.filename, mimeType: a.cv.mimeType });
 };
 
 // « Où j'ai postulé » : les candidatures de l'étudiant connecté.
@@ -193,6 +216,8 @@ exports.deleteApplication = async (req, res) => {
         message: "Candidature introuvable"
       });
     }
+
+    if (application.cv?.key) await storageService.remove(application.cv.key); // le CV disparaît avec la candidature
 
     return res.status(200).json({
       message: "Candidature supprimée avec succès"
