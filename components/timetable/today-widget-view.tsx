@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "@/components/ui/app-link";
-import { ArrowRight, CalendarCheck, CalendarX, UsersRound } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarX, UsersRound, Video } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useSessionChange } from "@/components/timetable/session-card";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,8 @@ function TodayItem({ session, now, showGroups }: { session: ClassSession; now: n
   const subject = session.subject?.name ?? t("unknownSubject");
   // Teachers see the groups they teach, students see who teaches.
   const who = showGroups ? session.groups.map((group) => group.name).join(", ") : teacherName(session.teacher);
-  const details = [session.room?.name ?? t("noRoom"), who].filter(Boolean).join(" · ");
+  const online = session.mode === "ONLINE";
+  const details = [online ? t("online") : (session.room?.name ?? t("noRoom")), who].filter(Boolean).join(" · ");
 
   return (
     <article
@@ -43,6 +44,17 @@ function TodayItem({ session, now, showGroups }: { session: ClassSession; now: n
         </p>
         <h3 className="truncate text-sm font-semibold">{subject}</h3>
         <p className="truncate text-xs text-muted-foreground">{details}</p>
+        {online && session.meetUrl && (
+          <a
+            href={session.meetUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 pt-0.5 text-xs font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Video className="h-3.5 w-3.5" aria-hidden="true" />
+            {t("joinMeet")}
+          </a>
+        )}
         {(cancelled || movedFrom || rescheduled || inProgress) && (
           <div className="flex flex-wrap gap-1 pt-1">
             {cancelled && <Badge variant="danger">{t("cancelled")}</Badge>}

@@ -5,6 +5,7 @@ const Schema = mongoose.Schema;
 
 const SESSION_TYPES = ['LECTURE', 'TUTORIAL', 'LAB', 'EXAM', 'OTHER'];
 const SESSION_STATUSES = ['SCHEDULED', 'CANCELLED'];
+const SESSION_MODES = ['ONSITE', 'ONLINE'];
 const CHANGE_KINDS = ['ROOM', 'TIME', 'CANCELLED'];
 // Where a session comes from (internal: the demo seed only replaces its own sessions).
 const SESSION_SOURCES = ['MANUAL', 'IMPORT', 'SEED'];
@@ -43,6 +44,12 @@ const classSessionSchema = new Schema(
       },
     },
     room: { type: Schema.Types.ObjectId, ref: 'Room', default: null },
+        mode: {
+      type: String,
+      enum: { values: SESSION_MODES, message: `Mode must be one of ${SESSION_MODES.join(', ')}` },
+      default: 'ONSITE',
+    },
+    meetUrl: { type: String, trim: true, maxlength: 200, default: null },
     startsAt: { type: Date, required: [true, 'Start is required'] },
     endsAt: { type: Date, required: [true, 'End is required'] },
     type: {
@@ -130,6 +137,8 @@ const serializeSession = (session) => {
     teacher: refSummary(session.teacher, ['firstname', 'lastname']),
     groups: (session.groups || []).map(serializeGroupRef).filter(Boolean),
     room,
+    mode: session.mode || 'ONSITE',
+    meetUrl: session.meetUrl || null,
     startsAt: toDate(session.startsAt),
     endsAt: toDate(session.endsAt),
     type: session.type,
@@ -156,6 +165,7 @@ const ClassSession = mongoose.model('ClassSession', classSessionSchema);
 module.exports = ClassSession;
 module.exports.SESSION_TYPES = SESSION_TYPES;
 module.exports.SESSION_STATUSES = SESSION_STATUSES;
+module.exports.SESSION_MODES = SESSION_MODES;
 module.exports.CHANGE_KINDS = CHANGE_KINDS;
 module.exports.SESSION_SOURCES = SESSION_SOURCES;
 module.exports.NOTES_MAX_LENGTH = NOTES_MAX_LENGTH;

@@ -14,7 +14,7 @@ import { RadioGroup } from "@/components/ui/radio-group";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { dateKey, formatTimeRange, timeKey } from "@/lib/datetime";
-import { SESSION_TYPES, type ClassSession, type SessionConflict, type SessionScope } from "@/lib/timetable/types";
+import { SESSION_MODES, SESSION_TYPES, type ClassSession, type SessionConflict, type SessionScope } from "@/lib/timetable/types";
 import type { Group, Room, Subject } from "@/lib/types";
 import {
   createSessionAction,
@@ -29,7 +29,7 @@ import type { ManagerTeacher } from "./timetable-manager";
 
 export type SessionDefaults = { teacher: string; groups: string[]; room: string; date: string };
 
-const EDITABLE: readonly SessionFormField[] = ["subject", "teacher", "groups", "room", "date", "start", "end", "type", "notes"];
+const EDITABLE: readonly SessionFormField[] = ["subject", "teacher", "groups", "room", "mode", "meetUrl", "date", "start", "end", "type", "notes"];
 
 function valuesOf(session: ClassSession | null, defaults: SessionDefaults): SessionFormValues {
   if (!session) {
@@ -38,6 +38,8 @@ function valuesOf(session: ClassSession | null, defaults: SessionDefaults): Sess
       teacher: defaults.teacher,
       groups: defaults.groups,
       room: defaults.room,
+      mode: "ONSITE",
+      meetUrl: "",
       date: defaults.date,
       start: "08:30",
       end: "10:00",
@@ -52,6 +54,8 @@ function valuesOf(session: ClassSession | null, defaults: SessionDefaults): Sess
     teacher: session.teacher?.id ?? "",
     groups: session.groups.map((group) => group.id),
     room: session.room?.id ?? "",
+    mode: session.mode ?? "ONSITE",
+    meetUrl: session.meetUrl ?? "",
     date: dateKey(session.startsAt),
     start: timeKey(session.startsAt),
     end: timeKey(session.endsAt),
@@ -141,6 +145,7 @@ export function SessionDialog({
 }) {
   const t = useTranslations("timetable.manage");
   const tTypes = useTranslations("timetable.session.types");
+  const tModes = useTranslations("timetable.session.modes");
   const [initial] = useState(() => valuesOf(session, defaults));
   const [values, setValues] = useState<SessionFormValues>(initial);
   const [scope, setScope] = useState<SessionScope>("occurrence");
@@ -259,18 +264,46 @@ export function SessionDialog({
                 </Select>
               )}
             </Field>
-            <Field id="session-room" label={t("form.room")} error={errors.room}>
-              {(props) => (
-                <Select {...props} value={values.room} onChange={(event) => set("room", event.target.value)}>
-                  <option value="">{t("form.noRoom")}</option>
-                  {rooms.map((room) => (
-                    <option key={room.id} value={room.id}>
-                      {room.building ? `${room.name} · ${room.building}` : room.name}
-                    </option>
-                  ))}
-                </Select>
+            <div className="space-y-4">
+              <Field id="session-mode" label={t("form.mode")} error={errors.mode}>
+                {(props) => (
+                  <Select {...props} value={values.mode} onChange={(event) => set("mode", event.target.value)}>
+                    {SESSION_MODES.map((mode) => (
+                      <option key={mode} value={mode}>
+                        {tModes(mode)}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              {values.mode === "ONLINE" ? (
+                <Field id="session-meet-url" label={t("form.meetUrl")} hint={t("form.meetUrlHint")} error={errors.meetUrl}>
+                  {(props) => (
+                    <Input
+                      {...props}
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://meet.google.com/abc-defg-hij"
+                      value={values.meetUrl}
+                      onChange={(event) => set("meetUrl", event.target.value)}
+                    />
+                  )}
+                </Field>
+              ) : (
+                <Field id="session-room" label={t("form.room")} error={errors.room}>
+                  {(props) => (
+                    <Select {...props} value={values.room} onChange={(event) => set("room", event.target.value)}>
+                      <option value="">{t("form.noRoom")}</option>
+                      {rooms.map((room) => (
+                        <option key={room.id} value={room.id}>
+                          {room.building ? `${room.name} · ${room.building}` : room.name}
+                        </option>
+                      ))}
+                    </Select>
+                  )}
+                </Field>
               )}
-            </Field>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">

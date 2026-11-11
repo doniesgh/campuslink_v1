@@ -5,7 +5,8 @@ export type SessionType = "LECTURE" | "TUTORIAL" | "LAB" | "EXAM" | "OTHER";
 export const SESSION_TYPES: readonly SessionType[] = ["LECTURE", "TUTORIAL", "LAB", "EXAM", "OTHER"];
 
 export type SessionStatus = "SCHEDULED" | "CANCELLED";
-
+export type SessionMode = "ONSITE" | "ONLINE";
+export const SESSION_MODES: readonly SessionMode[] = ["ONSITE", "ONLINE"];
 export type SessionScope = "occurrence" | "series";
 
 export type SessionChange = {
@@ -29,6 +30,10 @@ export type ClassSession = {
   teacher: SessionTeacher | null;
   groups: SessionGroup[];
   room: SessionRoom | null;
+  /** Absent in sessions saved offline before the online mode existed: treat as "ONSITE". */
+  mode?: SessionMode;
+  /** Google Meet link of an online session. */
+  meetUrl?: string | null;
   startsAt: string;
   endsAt: string;
   type: SessionType;

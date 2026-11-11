@@ -376,7 +376,15 @@ const buildChangeText = (locale, { kind, subjectName, count, first }) => {
   const day = formatDay(after.startsAt, locale);
   const many = count > 1;
   const sessionsFrom = fr ? `${count} séances à partir du ${day}` : `${count} classes from ${day}`;
-  const roomSuffix = after.room ? (fr ? `, salle ${after.room.name}` : `, room ${after.room.name}`) : '';
+  const roomSuffix = after.online
+    ? fr
+      ? ', en ligne'
+      : ', online'
+    : after.room
+      ? fr
+        ? `, salle ${after.room.name}`
+        : `, room ${after.room.name}`
+      : '';
 
   if (kind === 'CANCELLED') {
     if (many) {
@@ -440,12 +448,17 @@ const buildChangeText = (locale, { kind, subjectName, count, first }) => {
   }
 
   // ROOM
-  const change = `${roomLabel(before.room)} → ${roomLabel(after.room)}`;
-  const where = after.room
+  const placeLabel = (side) => (side.online ? (fr ? 'En ligne' : 'Online') : roomLabel(side.room));
+  const change = `${placeLabel(before)} → ${placeLabel(after)}`;
+  const where = after.online
     ? fr
-      ? `en salle ${roomWithBuilding(after.room)}`
-      : `in room ${roomWithBuilding(after.room)}`
-    : null;
+      ? 'en ligne'
+      : 'online'
+    : after.room
+      ? fr
+        ? `en salle ${roomWithBuilding(after.room)}`
+        : `in room ${roomWithBuilding(after.room)}`
+      : null;
   if (many) {
     return {
       title: fr ? `${prefix}salle changée ${change} (${sessionsFrom})` : `${prefix}room changed ${change} (${sessionsFrom})`,
