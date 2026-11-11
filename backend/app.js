@@ -47,6 +47,9 @@ app.get('/api/health', (req, res) => {
 app.use('/api', require('./routes/forumRoutes'));
 // app.js
 app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+// Sert les CV déposés (multer les enregistre dans backend/uploads/cv)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/opportunities', require('./routes/opportunityRoutes'));
 app.use('/api/opportunities', require('./routes/opportunityRoutes'));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
