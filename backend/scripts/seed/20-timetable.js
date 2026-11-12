@@ -2,8 +2,8 @@
 // Weekly series for the current week and the next 4 weeks for every demo group, one exam, plus one
 // room change and one cancellation in the coming days so the demo shows them. Idempotent: the
 // sessions created by a previous run (source SEED) are replaced. Sends no notification.
-const ClassSession = require('../models/classSessionModel');
-const timetableService = require('../service/timetableService');
+const ClassSession = require('../../models/classSessionModel');
+const timetableService = require('../../service/timetableService');
 
 const WEEKS = 5; // current week + the next 4
 

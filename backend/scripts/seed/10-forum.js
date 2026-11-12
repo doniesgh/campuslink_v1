@@ -1,7 +1,7 @@
 // Seed plugin of the forum: posts of every type by the demo students, with a few comments and replies.
 // Idempotent: the posts written by demo accounts (and their comments) are replaced; other posts are kept.
-const Post = require('../models/Post');
-const Comment = require('../models/Comment');
+const Post = require('../../models/Post');
+const Comment = require('../../models/Comment');
 
 const daysFromNow = (now, days, hours = 0, minutes = 0) => {
   const date = new Date(now);
