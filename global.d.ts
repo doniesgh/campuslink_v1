@@ -2,12 +2,15 @@
 // Every key must exist in messages/en/<namespace>.json AND messages/fr/<namespace>.json.
 import type account from "./messages/en/account.json";
 import type admin from "./messages/en/admin.json";
+import type announcements from "./messages/en/announcements.json";
 import type auth from "./messages/en/auth.json";
 import type common from "./messages/en/common.json";
 import type dashboard from "./messages/en/dashboard.json";
+import type forum from "./messages/en/forum.json";
 import type landing from "./messages/en/landing.json";
 import type notifications from "./messages/en/notifications.json";
 import type offline from "./messages/en/offline.json";
+import type timetable from "./messages/en/timetable.json";
 import type { formats } from "./i18n/config";
 
 type Messages = {
@@ -19,6 +22,9 @@ type Messages = {
   admin: typeof admin;
   notifications: typeof notifications;
   offline: typeof offline;
+  forum: typeof forum;
+  timetable: typeof timetable;
+  announcements: typeof announcements;
 };
 
 declare module "next-intl" {
