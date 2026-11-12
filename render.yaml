@@ -43,8 +43,9 @@ services:
         sync: false
       - key: MAIL_FROM_NAME
         value: CampusLink
-      # Smart import of users (AI through OpenRouter); off while the key is empty. Free models, tried in this order;
-      # their providers may keep what is sent (the first 12 lines of a file, emails and passwords masked).
+      # AI through OpenRouter (smart import of users, forum matching, job offer summaries); off while the key is empty.
+      # Free models, tried in this order; their providers may keep what is sent (the first 12 lines of an import file
+      # with emails and passwords masked, forum posts with phone numbers and emails masked, job offers).
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_MODEL

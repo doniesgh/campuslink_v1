@@ -209,9 +209,9 @@ Actor = `req.user` (snapshotted), IP = `req.ip` (honours `TRUST_PROXY`), User-Ag
 Never throws (failures are logged); resolves to the entry or `null`. Recorded today: `user.create`, `user.update`,
 `user.delete`, `auth.password_reset`, `auth.password_change`.
 
-### AI — `service/aiService.js` + `service/importAssist.js`
+### AI — `service/aiService.js` + `service/importAssist.js`, `service/aiMatcher.js`, `service/opportunitySummary.js`
 
-- `aiService.completeJson({ system, user, schemaName, schema })`: one call to OpenRouter's chat completions
+- `aiService.completeJson({ system, user, schemaName, schema, maxTokens?, timeoutMs? })`: one call to OpenRouter's chat completions
   (`OPENROUTER_API_KEY`; `OPENROUTER_MODEL`, default `anthropic/claude-haiku-5.5`, or several models separated by
   commas: OpenRouter tries the next one when one is busy or down), `temperature: 0`. How the JSON is asked for
   depends on what the models support (OpenRouter's public model list, read once): a strict JSON schema
@@ -238,6 +238,12 @@ Never throws (failures are logged); resolves to the entry or `null`. Recorded to
   `{ mapping, model }`, audited as `user.import.assist` (model, number of lines, columns; no file content). The
   model never creates anything: the web app applies the mapping and checks every line, then `POST /import` as usual.
   `GET /api/users/import/assist` → `{ enabled, model }`.
+- Forum matching, `service/aiMatcher.js` (same OpenRouter settings; `AI_MATCHING=off` turns only this one off):
+  `rerankLostFound` scores up to 8 lost/found candidates of a post (title, description, category, place, date, tags;
+  phone numbers and emails masked, texts cut), 15 s timeout, 10 analyses per user and minute, answers cached 15 min;
+  ids it did not send are ignored. `explainRideMatch` writes the notification sentence of a carpool that matches a
+  ride search (in the background, 20 s timeout, 30 a minute). On any failure they return `null` and the rule-based
+  matching or the standard text is used.
 
 ### Notifications — `service/notificationService.js` + `models/notificationModel.js`
 

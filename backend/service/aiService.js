@@ -85,9 +85,10 @@ const messageText = (content) => (Array.isArray(content) ? content.map((part) =>
  * Asks the model for a JSON object that follows `schema`: enforced by the provider (structured outputs) when the
  * model supports it, otherwise described in the instructions; the caller checks the answer either way. Returns
  * { data, model, usage }. Throws HttpError: 503 AI_DISABLED (no key, key refused), 503 AI_NO_CREDITS,
- * 429 AI_BUSY, 502 AI_FAILED (unreachable, error, or an answer that is not JSON).
+ * 429 AI_BUSY, 502 AI_FAILED (unreachable, error, too slow, or an answer that is not JSON). `timeoutMs`: shorter for
+ * calls made while a user waits on something that also works without AI.
  */
-const completeJson = async ({ system, user, schemaName, schema, maxTokens = 4000 }) => {
+const completeJson = async ({ system, user, schemaName, schema, maxTokens = 4000, timeoutMs = TIMEOUT_MS }) => {
   if (!isAiConfigured()) throw new HttpError(503, 'AI_DISABLED', 'AI is not configured on this server');
 
   const models = aiModels();
@@ -131,7 +132,7 @@ const completeJson = async ({ system, user, schemaName, schema, maxTokens = 4000
         temperature: 0,
         max_tokens: maxTokens,
       }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
     console.error('[ai] OpenRouter unreachable:', error.message);
@@ -142,7 +143,7 @@ const completeJson = async ({ system, user, schemaName, schema, maxTokens = 4000
   // off here, by the timeout.
   const body = await response.json().catch(() => null);
   if (response.ok && !body) {
-    console.error(`[ai] ${model} did not answer within ${TIMEOUT_MS / 1000} s`);
+    console.error(`[ai] ${model} did not answer within ${timeoutMs / 1000} s`);
     throw new HttpError(502, 'AI_FAILED', 'The AI service took too long to answer');
   }
   if (!response.ok) {
