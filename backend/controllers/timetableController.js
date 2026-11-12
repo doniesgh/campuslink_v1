@@ -27,14 +27,14 @@ const { analyzeImport } = require('../service/timetableImport');
  * Reading: any authenticated user. Management and import: ADMIN. ICS feed: secret token, no auth.
  */
 
-const { serializeSession, SESSION_TYPES, SESSION_STATUSES, NOTES_MAX_LENGTH, MAX_GROUPS } = ClassSession;
+const { serializeSession, SESSION_TYPES, SESSION_STATUSES, SESSION_MODES, NOTES_MAX_LENGTH, MAX_GROUPS } = ClassSession;
 const SCOPES = ['occurrence', 'series'];
-const UPDATABLE_FIELDS = ['subject', 'teacher', 'groups', 'room', 'startsAt', 'endsAt', 'type', 'notes', 'status'];
-// Calendar feed token: base64url(user id) "." base64url(HMAC-SHA256) (see "Calendar export" below).
+const UPDATABLE_FIELDS = ['subject', 'teacher', 'groups', 'room', 'startsAt', 'endsAt', 'type', 'notes', 'status', 'mode', 'meetUrl'];// Calendar feed token: base64url(user id) "." base64url(HMAC-SHA256) (see "Calendar export" below).
 const CALENDAR_TOKEN_RE = /^([A-Za-z0-9_-]{16})\.([A-Za-z0-9_-]{43})$/;
 const SORT_COLLATION = { locale: 'en', strength: 2, numericOrdering: true };
 const MAX_AUDITED_IDS = 50;
-
+// Accepted Google Meet links (https://meet.google.com/abc-defg-hij).
+const MEET_URL_RE = /^https:\/\/meet\.google\.com\/[a-z0-9_-]{3,40}(?:\/[a-z0-9_-]+)?(?:\?\S*)?$/i;
 const isPresent = (value) => value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '');
 const idString = (value) => (value === null || value === undefined ? null : String(value?._id ?? value));
 const sameId = (a, b) => idString(a) === idString(b);
@@ -161,6 +161,13 @@ const readSessionFields = async (body, details, { allowStatus }) => {
     else details[field] = `${field} must be an ISO 8601 date-time`;
   });
   if (has('type')) values.type = readEnum(body.type, SESSION_TYPES, 'type', details);
+  if (has('mode')) values.mode = readEnum(body.mode, SESSION_MODES, 'mode', details);
+  if (has('meetUrl')) {
+    const raw = typeof body.meetUrl === 'string' ? body.meetUrl.trim() : body.meetUrl;
+    if (raw === null || raw === '') values.meetUrl = null;
+    else if (typeof raw === 'string' && raw.length <= 200 && MEET_URL_RE.test(raw)) values.meetUrl = raw;
+    else details.meetUrl = 'meetUrl must be a Google Meet link (https://meet.google.com/...)';
+  }
   if (has('notes')) {
     values.notes = body.notes === null ? '' : readString(body.notes, 'notes', details, { max: NOTES_MAX_LENGTH });
   }
@@ -257,12 +264,16 @@ const createSession = async (req, res) => {
   throwIfInvalid(details);
 
   const seriesId = occurrences ? new mongoose.Types.ObjectId() : null;
+  const mode = values.mode ?? 'ONSITE';
+  const online = mode === 'ONLINE';
   const docs = (occurrences || [{ startsAt: values.startsAt, endsAt: values.endsAt }]).map(({ startsAt, endsAt }) => ({
     _id: new mongoose.Types.ObjectId(),
     subject: values.subject,
     teacher: values.teacher,
     groups: values.groups,
-    room: values.room ?? null,
+    room: online ? null : (values.room ?? null),
+    mode,
+    meetUrl: online ? (values.meetUrl ?? null) : null,
     startsAt,
     endsAt,
     type: values.type ?? 'LECTURE',
@@ -299,6 +310,8 @@ const createSession = async (req, res) => {
       startsAt: first.startsAt,
       endsAt: first.endsAt,
       type: first.type,
+      mode: first.mode ?? 'ONSITE',
+      meetUrl: first.meetUrl ?? null,
     },
   });
 
@@ -379,11 +392,15 @@ const updateSession = async (req, res) => {
         ? { startsAt: newStart, endsAt: newEnd }
         : timetableService.shiftOccurrence(target.startsAt, session.startsAt, newStart, newEnd));
     }
+    const mode = values.mode ?? target.mode ?? 'ONSITE';
+    const online = mode === 'ONLINE';
     const next = {
       subject: values.subject ?? target.subject,
       teacher: values.teacher ?? target.teacher,
       groups: values.groups ?? target.groups,
-      room: values.room !== undefined ? values.room : target.room,
+      room: online ? null : values.room !== undefined ? values.room : target.room,
+      mode,
+      meetUrl: online ? (values.meetUrl !== undefined ? values.meetUrl : (target.meetUrl ?? null)) : null,
       startsAt,
       endsAt,
       type: values.type ?? target.type,
@@ -401,6 +418,8 @@ const updateSession = async (req, res) => {
       groups: !sameIds(next.groups, target.groups),
       type: next.type !== target.type,
       notes: next.notes !== target.notes,
+      mode: next.mode !== (target.mode ?? 'ONSITE'),
+      meetUrl: (next.meetUrl ?? null) !== (target.meetUrl ?? null),
     };
     const changed = kinds.room || kinds.time || kinds.status || Object.values(other).some(Boolean);
     return { target, next, kinds, other, changed };
@@ -446,6 +465,7 @@ const updateSession = async (req, res) => {
       status: target.status,
       groups: [...target.groups],
       teacher: target.teacher,
+      online: (target.mode ?? 'ONSITE') === 'ONLINE',
     };
     const activeChange = plainChange(target.status === 'CANCELLED' ? target.changeBeforeCancel : target.change);
     const baseline = baselineOf(activeChange, target, roomsById);
@@ -478,6 +498,7 @@ const updateSession = async (req, res) => {
         status: next.status,
         groups: [...next.groups],
         teacher: next.teacher,
+        online: next.mode === 'ONLINE',
       },
     });
   }

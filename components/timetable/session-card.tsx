@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { ArrowRightLeft, Ban, CalendarClock, Clock, MapPin, UserRound, Users } from "lucide-react";
+import { ArrowRightLeft, Ban, CalendarClock, Clock, MapPin, UserRound, Users, Video } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { dateKey, formatTimeRange } from "@/lib/datetime";
@@ -64,6 +64,7 @@ export function SessionCard({ session, headingLevel = "h3", variant = "full", no
   const compact = variant === "compact";
   const cancelled = session.status === "CANCELLED";
   const subjectName = session.subject?.name ?? t("unknownSubject");
+  const online = session.mode === "ONLINE";
   const time = formatTimeRange(session.startsAt, session.endsAt);
   const day = format.dateTime(new Date(session.startsAt), "weekdayDayMonth");
   const start = Date.parse(session.startsAt);
@@ -131,12 +132,33 @@ export function SessionCard({ session, headingLevel = "h3", variant = "full", no
         </Heading>
 
         <ul className={cn("grid gap-1 text-muted-foreground", compact ? "text-xs" : "text-sm")}>
-          <li className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            <MapPin className={iconClass} aria-hidden="true" />
-            <span className="sr-only">{t("room")}: </span>
-            <span className={cn(session.room && "font-medium text-foreground")}>{session.room?.name ?? t("noRoom")}</span>
-            {session.room?.building && !compact && <span>· {session.room.building}</span>}
-          </li>
+          {online ? (
+            <li className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Video className={iconClass} aria-hidden="true" />
+              <Badge variant="secondary" className={cn(compact && "px-2 py-0 text-[11px]")}>
+                {t("online")}
+              </Badge>
+              {session.meetUrl ? (
+                <a
+                  href={session.meetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative z-10 font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {t("joinMeet")}
+                </a>
+              ) : (
+                <span>{t("meetPending")}</span>
+              )}
+            </li>
+          ) : (
+            <li className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <MapPin className={iconClass} aria-hidden="true" />
+              <span className="sr-only">{t("room")}: </span>
+              <span className={cn(session.room && "font-medium text-foreground")}>{session.room?.name ?? t("noRoom")}</span>
+              {session.room?.building && !compact && <span>· {session.room.building}</span>}
+            </li>
+          )}
           {movedFrom && (
             <li>
               <Badge variant="warning" className="whitespace-normal">

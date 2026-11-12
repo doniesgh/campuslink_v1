@@ -9,11 +9,13 @@ import { translateValidation } from "@/lib/i18n/server";
 import { actionFailure, actionSuccess, serverApi, type ActionState } from "@/lib/server-api";
 import { isObjectId } from "@/lib/timetable/range";
 import {
+  SESSION_MODES,
   SESSION_TYPES,
   type ClassSession,
   type ImportProblems,
   type ImportResult,
   type SessionConflict,
+  type SessionMode,
   type SessionScope,
   type SessionStatus,
   type SessionType,
@@ -26,6 +28,8 @@ export type SessionFormValues = {
   teacher: string;
   groups: string[];
   room: string;
+  mode: string;
+  meetUrl: string;
   date: string;
   start: string;
   end: string;
@@ -52,6 +56,7 @@ export type ImportActionState = ActionState<ImportActionData>;
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const NOTES_MAX = 1000;
+const MEET_URL_RE = /^https:\/\/meet\.google\.com\/[a-z0-9_-]{3,40}(?:\/[a-z0-9_-]+)?(?:\?\S*)?$/i;
 const SCOPES: readonly SessionScope[] = ["occurrence", "series"];
 /** Backend field names -> form field names. */
 const FIELD_NAMES: Record<string, SessionFormField> = {
@@ -79,7 +84,12 @@ async function validate(values: SessionFormValues, fields: readonly SessionFormF
   if (has("subject") && !isObjectId(values.subject)) keys.subject = "required";
   if (has("teacher") && !isObjectId(values.teacher)) keys.teacher = "required";
   if (has("groups") && (values.groups.length === 0 || !values.groups.every(isObjectId))) keys.groups = "required";
-  if (has("room") && values.room && !isObjectId(values.room)) keys.room = "invalidValue";
+  const online = values.mode === "ONLINE";
+  if (has("mode") && !SESSION_MODES.includes(values.mode as SessionMode)) keys.mode = "invalidValue";
+  if (has("room") && !online && values.room && !isObjectId(values.room)) keys.room = "invalidValue";
+  if (has("meetUrl") && online && values.meetUrl.trim() && !MEET_URL_RE.test(values.meetUrl.trim())) {
+    custom.meetUrl = t("meetUrlInvalid");
+  }
   if (has("type") && !SESSION_TYPES.includes(values.type as SessionType)) keys.type = "invalidValue";
   if (has("notes") && values.notes.length > NOTES_MAX) keys.notes = "invalidValue";
   if (has("date") || has("start") || has("end")) {
@@ -102,7 +112,9 @@ function toBody(values: SessionFormValues, fields: readonly SessionFormField[]):
   if (has("subject")) body.subject = values.subject;
   if (has("teacher")) body.teacher = values.teacher;
   if (has("groups")) body.groups = values.groups;
-  if (has("room")) body.room = values.room || null;
+  if (has("mode")) body.mode = values.mode;
+  if (has("room")) body.room = values.mode === "ONLINE" ? null : values.room || null;
+  if (has("meetUrl")) body.meetUrl = values.mode === "ONLINE" ? values.meetUrl.trim() || null : null;
   if (has("date") || has("start") || has("end")) {
     body.startsAt = zonedTimeToUtc(values.date, values.start).toISOString();
     body.endsAt = zonedTimeToUtc(values.date, values.end).toISOString();
@@ -129,7 +141,7 @@ async function apiFailure(error: unknown): Promise<SessionActionState> {
   return failure;
 }
 
-const ALL_FIELDS: readonly SessionFormField[] = ["subject", "teacher", "groups", "room", "date", "start", "end", "type", "notes"];
+const ALL_FIELDS: readonly SessionFormField[] = ["subject", "teacher", "groups", "room", "mode", "meetUrl", "date", "start", "end", "type", "notes"];
 
 /** "Save session" of the Add session dialog: POST /api/timetable/sessions (weekly series with "Repeat weekly"). */
 export async function createSessionAction(values: SessionFormValues): Promise<SessionActionState> {
