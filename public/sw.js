@@ -53,6 +53,8 @@ const PRIVATE_PAGES = [
   /^\/dashboard\/forum\/[A-Za-z0-9_-]{1,64}$/,
   /^\/dashboard\/account$/,
   /^\/dashboard\/admin\/users$/,
+  /^\/dashboard\/announcements$/,
+
 ];
 const NEVER_CACHE_PREFIXES = ["/bff/", "/api/", "/auth/"];
 const AUTH_PAGES = ["/login", "/signup", "/forgot-password", "/reset-password"];

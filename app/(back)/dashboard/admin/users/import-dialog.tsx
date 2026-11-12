@@ -154,7 +154,7 @@ export function ImportDialog({
   }, [open, online, ai]);
 
   const columns = Object.fromEntries(IMPORT_FIELDS.map((field) => [field, t(`columns.${field}`)])) as Record<ImportField, string>;
-  const roleLabels = Object.fromEntries((["STUDENT", "TEACHER", "ADMIN", "ALUMNI"] as Role[]).map((role) => [role, tRoles(role)]));
+  const roleLabels = Object.fromEntries((["STUDENT", "TEACHER", "ADMIN", "ALUMNI", "COMPANY"] as Role[]).map((role) => [role, tRoles(role)]));
 
   const parseErrorText = (error: ImportParseError) => {
     if (error.kind === "missingColumns") return t("errors.missingColumns", { columns: error.missing.map((field) => columns[field]).join(", ") });

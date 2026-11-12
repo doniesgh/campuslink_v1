@@ -211,7 +211,7 @@ export function filterRows(rows: UserRow[], { q, role }: { q: string; role: Role
 }
 
 export function countByRole(rows: UserRow[]): Record<Role, number> {
-  const counts: Record<Role, number> = { STUDENT: 0, TEACHER: 0, ADMIN: 0, ALUMNI: 0 };
+  const counts: Record<Role, number> = { STUDENT: 0, TEACHER: 0, ADMIN: 0, ALUMNI: 0, COMPANY: 0 };
   for (const row of rows) if (!(row.state.kind === "pending" && row.state.change === "delete")) counts[row.role] += 1;
   return counts;
 }

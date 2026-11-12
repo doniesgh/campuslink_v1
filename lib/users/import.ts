@@ -112,6 +112,7 @@ const ROLE_ALIASES: Record<Role, string[]> = {
   TEACHER: ["teacher", "enseignant", "enseignante", "professeur", "prof", "formateur", "formatrice"],
   ADMIN: ["admin", "administrateur", "administratrice", "administrator"],
   ALUMNI: ["alumni", "alumnus", "ancien", "ancienne", "ancienetudiant", "ancienneetudiante", "diplome", "diplomee"],
+  COMPANY: ["company", "entreprise", "societe", "recruteur", "recruteuse", "recruiter", "employeur", "employer"],
 };
 
 function headerField(title: string): ImportField | null {

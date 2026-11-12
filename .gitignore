@@ -50,3 +50,5 @@ next-env.d.ts
 !/backend/.env.example
 /backend/logs/
 /backend/uploads/
+.idea/
+backend/logs/

@@ -63,7 +63,7 @@ const SYSTEM = [
     '  ("BEN ALI Ines") is fullName, never lastname. Cells shown as ••• are masked passwords: that column is password.',
     '- nameOrder: for a fullName column, LAST_FIRST when the family name comes first (usual in French and Tunisian',
     '  lists, often in capitals) or FIRST_LAST; LAST_FIRST when there is no fullName column.',
-    '- roles: for each distinct value of the role column, the role it means (STUDENT, TEACHER, ADMIN, ALUMNI), or null',
+    '- roles: for each distinct value of the role column, the role it means (STUDENT, TEACHER, ADMIN, ALUMNI, COMPANY), or null',
     '  when it cannot be told. "prof", "enseignant" are TEACHER; "étudiant", "élève" are STUDENT.',
     '- groups: for each distinct value of the group column, the id of the matching group of the list, or null. Match',
     '  loosely ("4 DS 1", "4ds1", "4ème DS groupe 1" are the group named 4DS1) but never pick between two groups that',

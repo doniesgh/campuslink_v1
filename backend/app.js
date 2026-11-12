@@ -20,6 +20,7 @@ const notificationRoutes = require('./routes/notifications');
 const pushRoutes = require('./routes/push');
 const auditRoutes = require('./routes/audit');
 const forumRoutes = require('./routes/forumRoutes');
+const opportunityRoutes = require('./routes/opportunityRoutes');
 
 const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
 
@@ -45,7 +46,6 @@ app.use(express.json({ limit: '1mb' }));
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
-
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/academic', academicRoutes);
@@ -53,6 +53,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/push', pushRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/timetable', timetableRoutes);
+// Job offers and applications (CVs go through service/storageService.js: GridFS on Render).
+app.use('/api/opportunities', opportunityRoutes);
 
 // Forum: /api/posts/... and /api/comments/:id.
 app.use('/api/posts', forumRoutes);

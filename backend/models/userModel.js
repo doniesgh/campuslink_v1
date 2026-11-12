@@ -7,7 +7,7 @@ const { summarizeGroup } = require('./groupModel');
 
 const Schema = mongoose.Schema;
 
-const ROLES = ['STUDENT', 'TEACHER', 'ADMIN', 'ALUMNI'];
+const ROLES = ['STUDENT', 'TEACHER', 'ADMIN', 'ALUMNI', 'COMPANY'];
 const NAME_MAX_LENGTH = 100;
 const PASSWORD_HASH_ROUNDS = 10;
 
