@@ -29,8 +29,10 @@ npm run dev                  # or: npm run build && npm start
 ```
 
 Demo accounts (`npm run seed:demo`): `admin@campuslink.local`, students such as `yasmine.haddad@campuslink.local`
-(4TWIN1) or `skander.mejri@campuslink.local` (no group), teachers such as `amira.bensalah@campuslink.local`; every
-demo account uses the password `Campus123!`.
+(4TWIN1) or `skander.mejri@campuslink.local` (no group), teachers such as `amira.bensalah@campuslink.local`,
+companies `nadia.kooli@campuslink.local` and `walid.sassi@campuslink.local`; every demo account uses the password
+`Campus123!`. The seed also fills the forum (posts, carpool, lost & found), the timetable, the job offers and the
+notifications (see backend/README.md, "Seed plugins").
 
 Checks: `npx tsc --noEmit`, `npm run lint`, `npm run build`.
 Parallel builds: `NEXT_DIST_DIR=.next-<name> npm run build` (folders `.next-*` are git-ignored; Next adds

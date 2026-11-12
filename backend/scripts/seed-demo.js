@@ -91,6 +91,12 @@ const STUDENTS = [
 
 const ALUMNI = [{ firstname: 'Selim', lastname: 'Rekik', locale: 'fr' }];
 
+// Recruiters (COMPANY role): they publish job offers and answer applications. `company`: name shown on their offers.
+const COMPANIES = [
+  { firstname: 'Nadia', lastname: 'Kooli', company: 'Medina Soft', locale: 'fr' },
+  { firstname: 'Walid', lastname: 'Sassi', company: 'Carthage Data', locale: 'fr' },
+];
+
 // Who teaches what to whom: a suggestion for the timetable plugin (subject code, teacher index, groups).
 const TEACHING = [
   { subject: 'BDD', teacher: 0, groups: ['4TWIN1', '4TWIN2'] },
@@ -200,13 +206,19 @@ const seedCore = async () => {
   for (const person of ALUMNI) {
     alumni.push(await upsertUser({ ...person, email: emailFor(person), role: 'ALUMNI' }));
   }
+  const companies = [];
+  for (const { company, ...person } of COMPANIES) {
+    const user = await upsertUser({ ...person, email: emailFor(person), role: 'COMPANY' });
+    companies.push(Object.assign(user, { company }));
+  }
 
-  const all = [admin, ...teachers, ...students, ...alumni];
+  const all = [admin, ...teachers, ...students, ...alumni, ...companies];
   const users = {
     admin,
     teachers,
     students,
     alumni,
+    companies,
     studentsByGroup,
     byEmail: Object.fromEntries(all.map((user) => [user.email, user])),
   };
@@ -229,6 +241,7 @@ const printAccounts = (users) => {
     ...users.teachers.map((user) => ['TEACHER', user, '']),
     ...users.students.map((user) => ['STUDENT', user, user.group?.name ?? '(no group)']),
     ...users.alumni.map((user) => ['ALUMNI', user, '']),
+    ...users.companies.map((user) => ['COMPANY', user, user.company]),
   ];
   console.log(`\nDemo accounts (password for all: ${DEMO_PASSWORD})`);
   rows.forEach(([role, user, group]) => {
@@ -278,7 +291,7 @@ const main = async () => {
       core.users.studentsByGroup[name] = core.users.students.filter((user) => user.group?.name === name);
     });
     core.users.byEmail = Object.fromEntries(
-      [core.users.admin, ...core.users.teachers, ...core.users.students, ...core.users.alumni].map((user) => [
+      [core.users.admin, ...core.users.teachers, ...core.users.students, ...core.users.alumni, ...core.users.companies].map((user) => [
         user.email,
         user,
       ])

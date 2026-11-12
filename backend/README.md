@@ -399,17 +399,31 @@ Jobs never run when `app.js` is only imported (`require('./app')`), e.g. by scri
 
 ### Seed plugins — `scripts/seed/*.js`
 
-`npm run seed:demo` creates the core data (programs, groups, accounts), then runs every `scripts/seed/*.js` in
-name order (`10-forum.js`: posts of every type with comments and replies). A plugin exports `async (ctx) => {}`
-(or `{ name, run }`) and must be idempotent (delete what it created before, or upsert). It must not send
-notifications.
+`npm run seed:demo` creates the core data (programs, groups, subjects, rooms, accounts), then runs every
+`scripts/seed/*.js` in name order:
+
+- `10-forum.js`: posts of every type with likes, comments and replies; carpool rides around Tunis with map
+  coordinates, seat requests (pending, accepted, declined) and ride searches matched by `service/rideMatching.js`;
+  lost & found pairs for the matching (one in Arabic, one decoy); the forum notifications of all that.
+- `20-timetable.js`: weekly series for the current week and the next 4 for every group, one exam, one room change
+  and one cancellation in the coming days.
+- `30-opportunities.js`: job offers of every type by the demo companies and the admin, applications of students at
+  every status, most with a PDF CV saved through `service/storageService.js`.
+- `90-notifications.js`: in-app notifications of the room change and the cancellation (texts of
+  `timetableService.buildChangeText`, in each user's language) and a few ACCOUNT ones (sign-ups, group changes).
+
+A plugin exports `async (ctx) => {}` (or `{ name, run }`) and must be idempotent (delete what it created before, or
+upsert). It must not send push notifications or real-time events: in-app notifications are written directly.
 
 ```js
 ctx = {
   academicYear,                        // '2026-2027'
   programs: { TWIN, DS, SAE },         // documents by code
   groups: { '4TWIN1', '4TWIN2', '4DS1', '4SAE1' },   // documents by name (level 4)
-  users: { admin, teachers: [4], students: [15], alumni: [1], studentsByGroup: { '4TWIN1': [5], ... }, byEmail },
+  subjects: { BDD, WEB, ... }, rooms: { A04, ... },  // documents by code / name
+  users: { admin, teachers: [4], students: [15], alumni: [1], companies: [2] (+ .company),
+           studentsByGroup: { '4TWIN1': [5], ... }, byEmail },
+  teaching,                            // [{ subject, teacher, groups }]: who teaches what to whom
   mongoose, models,                    // mongoose.models
   time,                                // utils/time.js
   timezone, now, password,             // 'Africa/Tunis', Date, 'Campus123!'
@@ -419,4 +433,5 @@ ctx = {
 
 Demo accounts: `admin@campuslink.local`, teachers `amira.bensalah@`, `karim.trabelsi@`, `leila.gharbi@` (en),
 `mehdi.jaziri@`, students such as `yasmine.haddad@campuslink.local` (4TWIN1) and `skander.mejri@` (no group),
-alumni `selim.rekik@`; all with the password `Campus123!`.
+alumni `selim.rekik@`, companies `nadia.kooli@` (Medina Soft) and `walid.sassi@` (Carthage Data); all with the
+password `Campus123!`.
