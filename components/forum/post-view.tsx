@@ -6,7 +6,9 @@ import { useCallback, useEffect, useState } from "react";
 import { BffError, bff, errorMessage } from "@/lib/forum/bff";
 import { S } from "@/lib/forum/strings";
 import type { Post } from "@/lib/forum/types";
+import { CompatibleRidesPanel } from "./compatible-rides-panel";
 import { ArrowLeftIcon, IconCircle } from "./icons";
+import { MatchesPanel } from "./matches-panel";
 import { PostCard } from "./post-card";
 
 export function PostView({ id }: { id: string }) {
@@ -42,6 +44,9 @@ export function PostView({ id }: { id: string }) {
       )}
       {!post && !gone && !error && <div className="h-80 animate-pulse rounded-2xl bg-muted" aria-busy="true" />}
       {post && <PostCard post={post} detail onChange={setPost} onDeleted={() => router.replace(listPath)} />}
+      {/* Matching: lost/found posts of the opposite kind that look alike (rules + AI), rides close in place and time. */}
+      {post?.type === "objet_perdu" && post.status === "active" && <MatchesPanel postId={post._id} basePath={listPath} />}
+      {post?.type === "covoiturage" && <CompatibleRidesPanel post={post} basePath={listPath} />}
     </div>
   );
 }
