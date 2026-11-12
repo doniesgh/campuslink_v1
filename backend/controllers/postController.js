@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Post = require('../models/Post');
 const Comment = require('../models/Comment');
 const { POST_TYPES } = require('../models/Post');
+const { notifyRideSearchers } = require('../service/rideMatching');
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -50,6 +51,10 @@ exports.createPost = async (req, res) => {
 
     const post = await Post.create(data);
     res.status(201).json(post);
+    // In the background: the people whose ride search ("Look for a ride") matches this ride get a notification.
+    if (post.type === 'covoiturage') {
+      notifyRideSearchers(req, post).catch((err) => console.warn('[rides] could not notify the matching searches:', err.message));
+    }
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message });
   }
