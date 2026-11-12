@@ -1,5 +1,4 @@
-// Réordonne les candidats « objet perdu / trouvé » avec Claude (sens, synonymes, langues).
-// Sans clé API (ANTHROPIC_API_KEY) ou en cas d'erreur : renvoie null et le matching par règles prend le relais.
+
 let client = null;
 if (process.env.ANTHROPIC_API_KEY && process.env.AI_MATCHING !== 'off') {
   try {

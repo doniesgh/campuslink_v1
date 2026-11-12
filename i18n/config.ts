@@ -12,15 +12,15 @@ export const LOCALE_COOKIE_MAX_AGE = 365 * 24 * 60 * 60;
 
 /** Message namespaces: one JSON file per namespace in messages/<locale>/. */
 export const NAMESPACES = [
-  "common",
-  "landing",
-  "auth",
-  "dashboard",
   "account",
   "admin",
-  "notifications",
-  "offline",
+  "auth",
+  "common",
+  "dashboard",
   "forum",
+  "landing",
+  "offline",
+  "notifications",
   "timetable",
 ] as const;
 
